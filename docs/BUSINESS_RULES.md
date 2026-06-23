@@ -114,3 +114,21 @@ O sistema registra auditoria para:
 - cancelamento;
 - falta;
 - conclusão.
+## Configuracoes por estabelecimento
+
+Cada estabelecimento possui regras proprias em `establishment_settings`.
+
+| Configuracao | Efeito |
+| --- | --- |
+| `newClientRequiresApproval` | Cliente novo entra como `PENDING_APPROVAL` quando ligado. |
+| `pendingExpirationMinutes` | Tempo maximo, em minutos, para uma pendencia segurar horario. |
+| `maxFutureAppointmentsPerPhone` | Limite de reservas futuras bloqueantes para o mesmo telefone no estabelecimento. |
+| `maxAttemptsPerPhoneHour` | Limite de tentativas por telefone em 1 hora. |
+| `maxAttemptsPerIpHour` | Limite de tentativas por IP em 1 hora. |
+| `noShowCountForManualApproval` | A partir dessa quantidade de faltas, nova reserva publica fica `PENDING_APPROVAL`. |
+| `noShowCountForBlock` | A partir dessa quantidade de faltas, o cliente nao agenda online. |
+| `minHoursBeforeClientCancel` | Preparacao para cancelamento pelo cliente. |
+| `longServiceManualApprovalMinutes` | Servicos acima dessa duracao ficam `PENDING_APPROVAL`. |
+| `showPricesOnPublicPage` | Mostra ou esconde precos na pagina publica. |
+
+As configuracoes nunca mudam a identidade do cliente: telefone normalizado + estabelecimento. Tambem nao mudam a regra de bloqueio de horario: apenas `CONFIRMED` e `PENDING_APPROVAL` ainda valido bloqueiam.

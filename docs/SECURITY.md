@@ -67,3 +67,10 @@ Logs de suspeita registram estabelecimento e motivo, sem gravar nome, telefone c
 ## Cliente final sem senha
 
 O cliente final não precisa de senha porque não acessa um painel com dados privados. Ele apenas solicita agendamento por link público. A identificação operacional é feita por telefone normalizado + estabelecimento, e ações sensíveis continuam no painel autenticado do estabelecimento.
+## Configuracoes e antifraude
+
+As configuracoes do estabelecimento sao salvas por POST em `/panel/settings`, com CSRF ativo. O `establishmentId` vem do usuario autenticado, nao do formulario.
+
+`BookingGuardService` usa limites por estabelecimento para tentativas por telefone e por IP em 1 hora. Isso evita que excesso de tentativas em um estabelecimento afete outro.
+
+O agendamento publico tambem valida limite de horarios futuros por telefone, bloqueio por faltas e servicos longos. Mensagens para cliente final continuam simples e nao expoem detalhes internos de antifraude.

@@ -18,6 +18,7 @@ import br.com.agendafacilpro.domain.AppointmentRules;
 import br.com.agendafacilpro.domain.AppointmentStatus;
 import br.com.agendafacilpro.domain.Customer;
 import br.com.agendafacilpro.domain.Establishment;
+import br.com.agendafacilpro.domain.EstablishmentSettings;
 import br.com.agendafacilpro.domain.Professional;
 import br.com.agendafacilpro.domain.ServiceItem;
 import br.com.agendafacilpro.repo.AppointmentRepo;
@@ -39,8 +40,9 @@ public class AppointmentService {
     private final BookingGuardService guard;
     private final AppointmentViewUtil view;
     private final AppointmentAuditService audit;
+    private final EstablishmentSettingsService settingsService;
 
-    public AppointmentService(AppointmentRepo a, CustomerRepo c, ServiceItemRepo s, ProfessionalRepo p, TimeBlockRepo b, BookingGuardService g, AppointmentViewUtil v, AppointmentAuditService audit) {
+    public AppointmentService(AppointmentRepo a, CustomerRepo c, ServiceItemRepo s, ProfessionalRepo p, TimeBlockRepo b, BookingGuardService g, AppointmentViewUtil v, AppointmentAuditService audit, EstablishmentSettingsService settingsService) {
         appointments = a;
         customers = c;
         services = s;
@@ -49,6 +51,7 @@ public class AppointmentService {
         guard = g;
         view = v;
         this.audit = audit;
+        this.settingsService = settingsService;
     }
 
     public record Slot(LocalTime start, LocalTime end, boolean available, String reason) {
@@ -60,64 +63,76 @@ public class AppointmentService {
     }
 
     /**
-     * Lista os horários públicos respeitando bloqueios manuais e reservas que ainda seguram agenda.
+     * Lista horarios publicos depois de expirar pendencias antigas, evitando falsos bloqueios.
      */
-    @Transactional(readOnly = true)
+    @Transactional
     public List<Slot> slots(Long est, Long serviceId, Long professionalId, LocalDate date) {
-        ServiceItem s = services.findByIdAndEstablishmentId(serviceId, est).orElseThrow();
-        Professional p = professionals.findByIdAndEstablishmentId(professionalId, est).orElseThrow();
+        expire(est);
+        ServiceItem serviceItem = services.findByIdAndEstablishmentId(serviceId, est).orElseThrow();
+        Professional professional = professionals.findByIdAndEstablishmentId(professionalId, est).orElseThrow();
         List<Slot> out = new ArrayList<>();
         LocalTime t = LocalTime.of(8, 0);
-        while (!t.plusMinutes(s.getDurationMinutes()).isAfter(LocalTime.of(18, 0))) {
-            LocalDateTime start = LocalDateTime.of(date, t), end = start.plusMinutes(s.getDurationMinutes());
-            String r = reason(est, p.getId(), start, end);
-            out.add(new Slot(t, end.toLocalTime(), r == null, r));
+        while (!t.plusMinutes(serviceItem.getDurationMinutes()).isAfter(LocalTime.of(18, 0))) {
+            LocalDateTime start = LocalDateTime.of(date, t);
+            LocalDateTime end = start.plusMinutes(serviceItem.getDurationMinutes());
+            String reason = reason(est, professional.getId(), start, end);
+            out.add(new Slot(t, end.toLocalTime(), reason == null, reason));
             t = t.plusMinutes(30);
         }
         return out;
     }
 
     /**
-     * Cria uma solicitação pública sem login do cliente final.
-     * A identidade do cliente é telefone normalizado + estabelecimento, e faltas anteriores podem exigir aprovação manual.
+     * Cria solicitacao publica sem conta do cliente e aplica as configuracoes antifraude do estabelecimento.
      */
     @Transactional
     public Appointment create(Establishment est, Long serviceId, Long professionalId, LocalDate date, LocalTime time, String name, String phone, String ip, String honeypot) {
         if (name == null || name.trim().length() < 2) {
             throw new IllegalArgumentException("Informe seu nome para o estabelecimento identificar sua reserva.");
         }
-        expire(est.getId());
-        BookingGuardService.Decision d = guard.check(est, phone, ip, honeypot);
-        if (!d.allowed()) {
-            throw new IllegalArgumentException(d.message());
+        EstablishmentSettings settings = settingsService.forEstablishment(est);
+        expire(est.getId(), settings);
+        BookingGuardService.Decision decision = guard.check(est, phone, ip, honeypot);
+        if (!decision.allowed()) {
+            throw new IllegalArgumentException(decision.message());
         }
-        ServiceItem s = services.findByIdAndEstablishmentId(serviceId, est.getId()).filter(ServiceItem::isActive).orElseThrow(() -> new IllegalArgumentException("Serviço indisponível."));
-        Professional p = professionals.findByIdAndEstablishmentId(professionalId, est.getId()).filter(Professional::isActive).orElseThrow(() -> new IllegalArgumentException("Profissional indisponível."));
-        LocalDateTime start = LocalDateTime.of(date, time), end = start.plusMinutes(s.getDurationMinutes());
+        ServiceItem serviceItem = services.findByIdAndEstablishmentId(serviceId, est.getId())
+                .filter(ServiceItem::isActive)
+                .orElseThrow(() -> new IllegalArgumentException("Servico indisponivel."));
+        Professional professional = professionals.findByIdAndEstablishmentId(professionalId, est.getId())
+                .filter(Professional::isActive)
+                .orElseThrow(() -> new IllegalArgumentException("Profissional indisponivel."));
+        LocalDateTime start = LocalDateTime.of(date, time);
+        LocalDateTime end = start.plusMinutes(serviceItem.getDurationMinutes());
         if (!start.isAfter(LocalDateTime.now().minusMinutes(1))) {
-            throw new IllegalArgumentException("Esse horário já passou. Escolha outro horário disponível.");
+            throw new IllegalArgumentException("Esse horario ja passou. Escolha outro horario disponivel.");
         }
-        noConflict(est.getId(), p.getId(), start, end, null);
-        Optional<Customer> old = customers.findByEstablishmentIdAndPhoneNormalized(est.getId(), d.normalizedPhone());
-        boolean isNew = old.isEmpty();
-        Customer c = old.orElseGet(Customer::new);
-        c.setEstablishment(est);
-        c.setName(name.trim());
-        c.setPhoneNormalized(d.normalizedPhone());
-        if (c.isBlocked()) {
-            throw new IllegalArgumentException("Seu número está bloqueado para agendamento online. Fale com o estabelecimento pelo WhatsApp.");
+        noConflict(est.getId(), professional.getId(), start, end, null);
+        if (appointments.countFutureByPhone(est.getId(), decision.normalizedPhone(), AppointmentRules.blockingStatuses(), LocalDateTime.now()) >= settings.getMaxFutureAppointmentsPerPhone()) {
+            throw new IllegalArgumentException("Para marcar um novo horario, fale com o estabelecimento.");
         }
-        c = customers.save(c);
-        Appointment a = new Appointment();
-        a.setEstablishment(est);
-        a.setCustomer(c);
-        a.setServiceItem(s);
-        a.setProfessional(p);
-        a.setStartAt(start);
-        a.setEndAt(end);
-        a.setClientIp(ip);
-        a.setStatus((isNew || c.getNoShowCount() >= 2) ? AppointmentStatus.PENDING_APPROVAL : AppointmentStatus.CONFIRMED);
-        return appointments.save(a);
+
+        Optional<Customer> existing = customers.findByEstablishmentIdAndPhoneNormalized(est.getId(), decision.normalizedPhone());
+        boolean isNew = existing.isEmpty();
+        Customer customer = existing.orElseGet(Customer::new);
+        customer.setEstablishment(est);
+        customer.setName(name.trim());
+        customer.setPhoneNormalized(decision.normalizedPhone());
+        if (customer.isBlocked() || customer.getNoShowCount() >= settings.getNoShowCountForBlock()) {
+            throw new IllegalArgumentException("Para marcar um novo horario, fale com o estabelecimento.");
+        }
+        customer = customers.save(customer);
+
+        Appointment appointment = new Appointment();
+        appointment.setEstablishment(est);
+        appointment.setCustomer(customer);
+        appointment.setServiceItem(serviceItem);
+        appointment.setProfessional(professional);
+        appointment.setStartAt(start);
+        appointment.setEndAt(end);
+        appointment.setClientIp(ip);
+        appointment.setStatus(requiresApproval(isNew, customer, serviceItem, settings) ? AppointmentStatus.PENDING_APPROVAL : AppointmentStatus.CONFIRMED);
+        return appointments.save(appointment);
     }
 
     /**
@@ -130,55 +145,56 @@ public class AppointmentService {
             throw new IllegalArgumentException("Informe o nome do cliente.");
         }
         String normalizedPhone = PhoneNormalizer.normalize(request.customerPhone());
-        ServiceItem s = services.findByIdAndEstablishmentId(request.serviceId(), est.getId())
+        ServiceItem serviceItem = services.findByIdAndEstablishmentId(request.serviceId(), est.getId())
                 .filter(ServiceItem::isActive)
                 .orElseThrow(() -> new IllegalArgumentException("Servico indisponivel."));
-        Professional p = professionals.findByIdAndEstablishmentId(request.professionalId(), est.getId())
+        Professional professional = professionals.findByIdAndEstablishmentId(request.professionalId(), est.getId())
                 .filter(Professional::isActive)
                 .orElseThrow(() -> new IllegalArgumentException("Profissional indisponivel."));
         LocalDateTime start = LocalDateTime.of(request.date(), request.time());
-        LocalDateTime end = start.plusMinutes(s.getDurationMinutes());
+        LocalDateTime end = start.plusMinutes(serviceItem.getDurationMinutes());
         if (!start.isAfter(LocalDateTime.now().minusMinutes(1))) {
             throw new IllegalArgumentException("Esse horario ja passou. Escolha outro horario disponivel.");
         }
-        noConflict(est.getId(), p.getId(), start, end, null);
+        noConflict(est.getId(), professional.getId(), start, end, null);
 
         Optional<Customer> existingCustomer = customers.findByEstablishmentIdAndPhoneNormalized(est.getId(), normalizedPhone);
-        Customer c = existingCustomer.orElseGet(Customer::new);
-        c.setEstablishment(est);
-        c.setName(request.customerName().trim());
-        c.setPhoneNormalized(normalizedPhone);
-        if (c.isBlocked() && !request.forceBlockedCustomer()) {
+        Customer customer = existingCustomer.orElseGet(Customer::new);
+        customer.setEstablishment(est);
+        customer.setName(request.customerName().trim());
+        customer.setPhoneNormalized(normalizedPhone);
+        if (customer.isBlocked() && !request.forceBlockedCustomer()) {
             throw new IllegalArgumentException("Cliente bloqueado. Confirme que deseja reservar manualmente mesmo assim.");
         }
-        c = customers.save(c);
+        customer = customers.save(customer);
 
-        Appointment a = new Appointment();
-        a.setEstablishment(est);
-        a.setCustomer(c);
-        a.setServiceItem(s);
-        a.setProfessional(p);
-        a.setStartAt(start);
-        a.setEndAt(end);
-        a.setStatus(AppointmentStatus.CONFIRMED);
-        a.setClientIp("manual");
-        a.setInternalNote(blankToNull(request.internalNote()));
-        a = appointments.save(a);
+        Appointment appointment = new Appointment();
+        appointment.setEstablishment(est);
+        appointment.setCustomer(customer);
+        appointment.setServiceItem(serviceItem);
+        appointment.setProfessional(professional);
+        appointment.setStartAt(start);
+        appointment.setEndAt(end);
+        appointment.setStatus(AppointmentStatus.CONFIRMED);
+        appointment.setClientIp("manual");
+        appointment.setInternalNote(blankToNull(request.internalNote()));
+        appointment = appointments.save(appointment);
 
-        audit.record(a, user, "MANUAL_CREATE", manualAuditDetails(existingCustomer.isPresent(), c));
-        return a;
+        audit.record(appointment, user, "MANUAL_CREATE", manualAuditDetails(existingCustomer.isPresent(), customer));
+        return appointment;
     }
 
     @Transactional(readOnly = true)
     public Summary summary(Establishment est, Long id) {
-        Appointment a = appointments.findByIdAndEstablishmentId(id, est.getId()).orElseThrow(() -> new IllegalArgumentException("Agendamento não encontrado."));
-        String text = "Olá! Fiz uma solicitação de agendamento para " + a.getServiceItem().getName() + " com " + a.getProfessional().getName() + ".";
+        Appointment appointment = appointments.findByIdAndEstablishmentId(id, est.getId())
+                .orElseThrow(() -> new IllegalArgumentException("Agendamento nao encontrado."));
+        String text = "Ola! Fiz uma solicitacao de agendamento para " + appointment.getServiceItem().getName() + " com " + appointment.getProfessional().getName() + ".";
         String url = "https://wa.me/" + est.getWhatsapp() + "?text=" + URLEncoder.encode(text, StandardCharsets.UTF_8);
-        return new Summary(a.getCustomer().getName(), est.getName(), a.getServiceItem().getName(), a.getProfessional().getName(), a.getStartAt(), a.getEndAt(), view.statusLabel(a.getStatus()), url);
+        return new Summary(appointment.getCustomer().getName(), est.getName(), appointment.getServiceItem().getName(), appointment.getProfessional().getName(), appointment.getStartAt(), appointment.getEndAt(), view.statusLabel(appointment.getStatus()), url);
     }
 
     /**
-     * Aprova uma reserva pendente após revalidar conflito, porque o horário pode ter mudado desde a solicitação.
+     * Aprova uma reserva pendente apos revalidar conflito, porque o horario pode ter mudado desde a solicitacao.
      */
     @Transactional
     public void approve(Long id, Long est) {
@@ -187,18 +203,18 @@ public class AppointmentService {
 
     @Transactional
     public void approve(Long id, Long est, AppUser user) {
-        Appointment a = owned(id, est);
-        if (a.getStatus() != AppointmentStatus.PENDING_APPROVAL) {
-            throw new IllegalStateException("Essa reserva não está pendente.");
+        Appointment appointment = owned(id, est);
+        if (appointment.getStatus() != AppointmentStatus.PENDING_APPROVAL) {
+            throw new IllegalStateException("Essa reserva nao esta pendente.");
         }
-        noConflict(est, a.getProfessional().getId(), a.getStartAt(), a.getEndAt(), a.getId());
-        a.setStatus(AppointmentStatus.CONFIRMED);
-        a.setApprovedAt(LocalDateTime.now());
-        recordAudit(a, user, "APPROVE", "Reserva aprovada pelo painel");
+        noConflict(est, appointment.getProfessional().getId(), appointment.getStartAt(), appointment.getEndAt(), appointment.getId());
+        appointment.setStatus(AppointmentStatus.CONFIRMED);
+        appointment.setApprovedAt(LocalDateTime.now());
+        recordAudit(appointment, user, "APPROVE", "Reserva aprovada pelo painel");
     }
 
     /**
-     * Rejeitar uma pendência encerra a solicitação e libera o horário para novas reservas.
+     * Rejeitar uma pendencia encerra a solicitacao e libera o horario para novas reservas.
      */
     @Transactional
     public void reject(Long id, Long est) {
@@ -207,17 +223,17 @@ public class AppointmentService {
 
     @Transactional
     public void reject(Long id, Long est, AppUser user) {
-        Appointment a = owned(id, est);
-        if (a.getStatus() != AppointmentStatus.PENDING_APPROVAL) {
+        Appointment appointment = owned(id, est);
+        if (appointment.getStatus() != AppointmentStatus.PENDING_APPROVAL) {
             throw new IllegalStateException("Somente reservas pendentes podem ser recusadas.");
         }
-        a.setStatus(AppointmentStatus.CANCELLED);
-        a.setCancellationReason("Recusado pelo estabelecimento");
-        recordAudit(a, user, "REJECT", "Reserva recusada; horario liberado");
+        appointment.setStatus(AppointmentStatus.CANCELLED);
+        appointment.setCancellationReason("Recusado pelo estabelecimento");
+        recordAudit(appointment, user, "REJECT", "Reserva recusada; horario liberado");
     }
 
     /**
-     * Cancelamento administrativo mantém histórico, mas remove o bloqueio do horário.
+     * Cancelamento administrativo mantem historico, mas remove o bloqueio do horario.
      */
     @Transactional
     public void cancel(Long id, Long est, String reason) {
@@ -226,13 +242,13 @@ public class AppointmentService {
 
     @Transactional
     public void cancel(Long id, Long est, String reason, AppUser user) {
-        Appointment a = owned(id, est);
-        if (a.getStatus() != AppointmentStatus.CONFIRMED && a.getStatus() != AppointmentStatus.PENDING_APPROVAL) {
-            throw new IllegalStateException("Esse agendamento já está encerrado.");
+        Appointment appointment = owned(id, est);
+        if (appointment.getStatus() != AppointmentStatus.CONFIRMED && appointment.getStatus() != AppointmentStatus.PENDING_APPROVAL) {
+            throw new IllegalStateException("Esse agendamento ja esta encerrado.");
         }
-        a.setStatus(AppointmentStatus.CANCELLED);
-        a.setCancellationReason(reason == null || reason.isBlank() ? "Cancelado pelo estabelecimento" : reason.trim());
-        recordAudit(a, user, "CANCEL", "Agendamento cancelado; horario liberado");
+        appointment.setStatus(AppointmentStatus.CANCELLED);
+        appointment.setCancellationReason(reason == null || reason.isBlank() ? "Cancelado pelo estabelecimento" : reason.trim());
+        recordAudit(appointment, user, "CANCEL", "Agendamento cancelado; horario liberado");
     }
 
     @Transactional
@@ -242,17 +258,17 @@ public class AppointmentService {
 
     @Transactional
     public void complete(Long id, Long est, AppUser user) {
-        Appointment a = owned(id, est);
-        if (a.getStatus() != AppointmentStatus.CONFIRMED) {
-            throw new IllegalStateException("Somente confirmados podem ser concluídos.");
+        Appointment appointment = owned(id, est);
+        if (appointment.getStatus() != AppointmentStatus.CONFIRMED) {
+            throw new IllegalStateException("Somente confirmados podem ser concluidos.");
         }
-        a.setStatus(AppointmentStatus.COMPLETED);
-        a.setCompletedAt(LocalDateTime.now());
-        recordAudit(a, user, "COMPLETE", "Atendimento concluido pelo painel");
+        appointment.setStatus(AppointmentStatus.COMPLETED);
+        appointment.setCompletedAt(LocalDateTime.now());
+        recordAudit(appointment, user, "COMPLETE", "Atendimento concluido pelo painel");
     }
 
     /**
-     * Registra falta e incrementa o contador usado para exigir aprovação manual em reservas futuras.
+     * Registra falta e incrementa o contador usado para regras futuras configuraveis.
      */
     @Transactional
     public void noShow(Long id, Long est) {
@@ -261,49 +277,59 @@ public class AppointmentService {
 
     @Transactional
     public void noShow(Long id, Long est, AppUser user) {
-        Appointment a = owned(id, est);
-        if (a.getStatus() != AppointmentStatus.CONFIRMED) {
+        Appointment appointment = owned(id, est);
+        if (appointment.getStatus() != AppointmentStatus.CONFIRMED) {
             throw new IllegalStateException("Somente confirmados podem receber falta.");
         }
-        a.setStatus(AppointmentStatus.NO_SHOW);
-        a.getCustomer().addNoShow();
-        recordAudit(a, user, "NO_SHOW", "Falta registrada no painel");
+        appointment.setStatus(AppointmentStatus.NO_SHOW);
+        appointment.getCustomer().addNoShow();
+        recordAudit(appointment, user, "NO_SHOW", "Falta registrada no painel");
     }
 
     /**
-     * Pendências vencidas deixam de bloquear horário quando a data/hora de início já passou.
+     * Expira pendencias por inicio passado ou pelo tempo configurado, liberando o horario.
      */
     @Transactional
     public void expire(Long est) {
-        appointments.findByEstablishmentIdAndStatusAndStartAtBefore(est, AppointmentStatus.PENDING_APPROVAL, LocalDateTime.now()).forEach(a -> {
-            a.setStatus(AppointmentStatus.EXPIRED);
-            a.setCancellationReason("Reserva pendente expirou automaticamente");
+        expire(est, settingsService.forEstablishmentId(est));
+    }
+
+    @Transactional
+    public void expire(Long est, EstablishmentSettings settings) {
+        LocalDateTime now = LocalDateTime.now();
+        List<Appointment> expired = new ArrayList<>();
+        expired.addAll(appointments.findByEstablishmentIdAndStatusAndStartAtBefore(est, AppointmentStatus.PENDING_APPROVAL, now));
+        expired.addAll(appointments.findByEstablishmentIdAndStatusAndCreatedAtBefore(est, AppointmentStatus.PENDING_APPROVAL, now.minusMinutes(settings.getPendingExpirationMinutes())));
+        expired.stream().distinct().forEach(appointment -> {
+            appointment.setStatus(AppointmentStatus.EXPIRED);
+            appointment.setCancellationReason("Reserva pendente expirou automaticamente");
         });
     }
 
     private Appointment owned(Long id, Long est) {
-        return appointments.findByIdAndEstablishmentId(id, est).orElseThrow(() -> new IllegalArgumentException("Agendamento não encontrado para este estabelecimento."));
+        return appointments.findByIdAndEstablishmentId(id, est)
+                .orElseThrow(() -> new IllegalArgumentException("Agendamento nao encontrado para este estabelecimento."));
     }
 
     private String reason(Long est, Long prof, LocalDateTime start, LocalDateTime end) {
         if (!start.isAfter(LocalDateTime.now().minusMinutes(1))) {
-            return "Horário já passou";
+            return "Horario ja passou";
         }
         if (blocks.existsOverlap(est, prof, start, end)) {
             return "Bloqueado pelo estabelecimento";
         }
         if (appointments.existsBlockingOverlap(est, prof, start, end, AppointmentRules.blockingStatuses(), null)) {
-            return "Já existe reserva nesse horário";
+            return "Ja existe reserva nesse horario";
         }
         return null;
     }
 
     private void noConflict(Long est, Long prof, LocalDateTime start, LocalDateTime end, Long ignore) {
         if (blocks.existsOverlap(est, prof, start, end)) {
-            throw new IllegalArgumentException("Esse horário foi bloqueado pelo estabelecimento.");
+            throw new IllegalArgumentException("Esse horario foi bloqueado pelo estabelecimento.");
         }
         if (appointments.existsBlockingOverlap(est, prof, start, end, AppointmentRules.blockingStatuses(), ignore)) {
-            throw new IllegalArgumentException("Horario ja ocupado. Esse horario ficou indisponivel.");
+            throw new IllegalArgumentException("Esse horario nao esta mais disponivel.");
         }
     }
 
@@ -327,5 +353,11 @@ public class AppointmentService {
 
     private String blankToNull(String value) {
         return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    private boolean requiresApproval(boolean isNew, Customer customer, ServiceItem serviceItem, EstablishmentSettings settings) {
+        return (isNew && settings.isNewClientRequiresApproval())
+                || customer.getNoShowCount() >= settings.getNoShowCountForManualApproval()
+                || serviceItem.getDurationMinutes() > settings.getLongServiceManualApprovalMinutes();
     }
 }

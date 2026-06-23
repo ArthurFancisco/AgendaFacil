@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import br.com.agendafacilpro.domain.BookingAttempt;
 import br.com.agendafacilpro.domain.Establishment;
+import br.com.agendafacilpro.domain.EstablishmentSettings;
 import br.com.agendafacilpro.repo.BookingAttemptRepo;
 import br.com.agendafacilpro.util.PhoneNormalizer;
 
@@ -17,9 +18,11 @@ public class BookingGuardService {
 
     private static final Logger log = LoggerFactory.getLogger(BookingGuardService.class);
     private final BookingAttemptRepo attempts;
+    private final EstablishmentSettingsService settingsService;
 
-    public BookingGuardService(BookingAttemptRepo attempts) {
+    public BookingGuardService(BookingAttemptRepo attempts, EstablishmentSettingsService settingsService) {
         this.attempts = attempts;
+        this.settingsService = settingsService;
     }
 
     public String normalizePhone(String phone) {
@@ -33,18 +36,19 @@ public class BookingGuardService {
     @Transactional
     public Decision check(Establishment est, String phone, String ip, String honeypot) {
         String normalized = PhoneNormalizer.digitsWithoutBrazilCountryCode(phone);
+        EstablishmentSettings settings = settingsService.forEstablishment(est);
         if (honeypot != null && !honeypot.isBlank()) {
-            return block(est, normalized, ip, "Honeypot preenchido", "Não conseguimos confirmar essa solicitação. Tente novamente em alguns minutos.");
+            return block(est, normalized, ip, "Honeypot preenchido", "Não foi possível continuar agora. Fale com o estabelecimento.");
         }
         if (!PhoneNormalizer.isValidNormalized(normalized)) {
             return block(est, normalized, ip, "Telefone inválido", "Confira o número do WhatsApp e tente de novo.");
         }
-        LocalDateTime since = LocalDateTime.now().minusMinutes(30);
-        if (attempts.countByEstablishmentIdAndPhoneNormalizedAndCreatedAtAfter(est.getId(), normalized, since) >= 3) {
-            return block(est, normalized, ip, "Limite por telefone", "Recebemos muitas tentativas para esse número. Aguarde um pouco antes de tentar novamente.");
+        LocalDateTime since = LocalDateTime.now().minusHours(1);
+        if (attempts.countByEstablishmentIdAndPhoneNormalizedAndCreatedAtAfter(est.getId(), normalized, since) >= settings.getMaxAttemptsPerPhoneHour()) {
+            return block(est, normalized, ip, "Limite por telefone", "Para marcar um novo horário, fale com o estabelecimento.");
         }
-        if (attempts.countByEstablishmentIdAndIpAddressAndCreatedAtAfter(est.getId(), safe(ip), since) >= 10) {
-            return block(est, normalized, ip, "Limite por IP", "Recebemos muitas tentativas deste acesso. Tente novamente mais tarde.");
+        if (attempts.countByEstablishmentIdAndIpAddressAndCreatedAtAfter(est.getId(), safe(ip), since) >= settings.getMaxAttemptsPerIpHour()) {
+            return block(est, normalized, ip, "Limite por IP", "Não foi possível continuar agora. Fale com o estabelecimento.");
         }
         save(est, normalized, ip, false, "Aceita");
         return new Decision(true, "ok", normalized);

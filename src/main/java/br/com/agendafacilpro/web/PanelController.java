@@ -27,6 +27,8 @@ import br.com.agendafacilpro.repo.TimeBlockRepo;
 import br.com.agendafacilpro.service.AppointmentService;
 import br.com.agendafacilpro.service.CurrentUserService;
 import br.com.agendafacilpro.service.DashboardService;
+import br.com.agendafacilpro.service.EstablishmentSettingsForm;
+import br.com.agendafacilpro.service.EstablishmentSettingsService;
 import br.com.agendafacilpro.service.ManualAppointmentRequest;
 import br.com.agendafacilpro.util.PhoneNormalizer;
 
@@ -40,8 +42,9 @@ public class PanelController {
     private final ProfessionalRepo professionals;
     private final TimeBlockRepo blocks;
     private final CustomerRepo customers;
+    private final EstablishmentSettingsService settingsService;
 
-    public PanelController(CurrentUserService c, DashboardService d, AppointmentService a, ServiceItemRepo s, ProfessionalRepo p, TimeBlockRepo b, CustomerRepo customers) {
+    public PanelController(CurrentUserService c, DashboardService d, AppointmentService a, ServiceItemRepo s, ProfessionalRepo p, TimeBlockRepo b, CustomerRepo customers, EstablishmentSettingsService settingsService) {
         current = c;
         dashboard = d;
         appointments = a;
@@ -49,6 +52,7 @@ public class PanelController {
         professionals = p;
         blocks = b;
         this.customers = customers;
+        this.settingsService = settingsService;
     }
 
     @GetMapping("/panel")
@@ -76,6 +80,7 @@ public class PanelController {
         model.addAttribute("next7Date", LocalDate.now().plusDays(6));
         model.addAttribute("customerLookupPhone", customerPhone);
         model.addAttribute("customerLookup", lookupCustomer(est, customerPhone));
+        model.addAttribute("settings", settingsService.forEstablishment(u.getEstablishment()));
         return "panel/dashboard";
     }
 
@@ -198,6 +203,34 @@ public class PanelController {
         b.setActive(!b.isActive());
         blocks.save(b);
         r.addFlashAttribute("success", b.isActive() ? "Bloqueio reativado." : "Bloqueio pausado.");
+        return "redirect:/panel#configuracoes";
+    }
+
+    @PostMapping("/panel/settings")
+    String settings(@RequestParam(defaultValue = "false") boolean newClientRequiresApproval,
+                    @RequestParam int pendingExpirationMinutes,
+                    @RequestParam int maxFutureAppointmentsPerPhone,
+                    @RequestParam int maxAttemptsPerPhoneHour,
+                    @RequestParam int maxAttemptsPerIpHour,
+                    @RequestParam int noShowCountForManualApproval,
+                    @RequestParam int noShowCountForBlock,
+                    @RequestParam int minHoursBeforeClientCancel,
+                    @RequestParam int longServiceManualApprovalMinutes,
+                    @RequestParam(defaultValue = "false") boolean showPricesOnPublicPage,
+                    RedirectAttributes r) {
+        settingsService.update(current.user().getEstablishment(), new EstablishmentSettingsForm(
+                newClientRequiresApproval,
+                pendingExpirationMinutes,
+                maxFutureAppointmentsPerPhone,
+                maxAttemptsPerPhoneHour,
+                maxAttemptsPerIpHour,
+                noShowCountForManualApproval,
+                noShowCountForBlock,
+                minHoursBeforeClientCancel,
+                longServiceManualApprovalMinutes,
+                showPricesOnPublicPage
+        ));
+        r.addFlashAttribute("success", "Configuracoes salvas para este estabelecimento.");
         return "redirect:/panel#configuracoes";
     }
 

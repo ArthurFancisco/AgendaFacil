@@ -49,3 +49,18 @@
 - [ ] Status bloqueantes e liberadores cobertos.
 - [ ] Regra de conflito cobre igualdade, sobreposição e fronteiras sem conflito.
 - [ ] Regra de faltas cobre incremento e exigência de aprovação manual.
+## Configuracoes por estabelecimento
+
+- [ ] Tela de configuracoes carrega no painel.
+- [ ] Salvar configuracoes usa POST com CSRF.
+- [ ] Configuracoes salvam para o estabelecimento autenticado.
+- [ ] Cliente novo fica pendente quando a opcao estiver ligada.
+- [ ] Cliente novo confirma automaticamente quando a opcao permitir.
+- [ ] Limite de agendamentos futuros por telefone bloqueia novo horario.
+- [ ] Limite de tentativas por telefone bloqueia excesso em 1 hora.
+- [ ] Limite de tentativas por IP bloqueia excesso em 1 hora.
+- [ ] Cliente com faltas entra como pendente conforme configuracao.
+- [ ] Cliente com faltas acima do bloqueio nao agenda online.
+- [ ] Servico longo entra como pendente conforme configuracao.
+- [ ] Pendencia expirada por tempo libera horario.
+- [ ] Precos aparecem ou somem na pagina publica conforme configuracao.

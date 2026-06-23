@@ -18,6 +18,7 @@ import br.com.agendafacilpro.domain.Appointment;
 import br.com.agendafacilpro.domain.AppointmentStatus;
 import br.com.agendafacilpro.domain.Customer;
 import br.com.agendafacilpro.domain.Establishment;
+import br.com.agendafacilpro.domain.EstablishmentSettings;
 import br.com.agendafacilpro.domain.Professional;
 import br.com.agendafacilpro.domain.ServiceItem;
 import br.com.agendafacilpro.repo.AppointmentRepo;
@@ -34,7 +35,8 @@ class AppointmentServiceNoShowTest {
     private final ServiceItemRepo services = mock(ServiceItemRepo.class);
     private final ProfessionalRepo professionals = mock(ProfessionalRepo.class);
     private final TimeBlockRepo blocks = mock(TimeBlockRepo.class);
-    private final BookingGuardService guard = new BookingGuardService(null) {
+    private final FakeSettingsService settings = new FakeSettingsService();
+    private final BookingGuardService guard = new BookingGuardService(null, settings) {
         @Override
         public Decision check(Establishment est, String phone, String ip, String honeypot) {
             return new Decision(true, "ok", "17988887777");
@@ -48,7 +50,8 @@ class AppointmentServiceNoShowTest {
             blocks,
             guard,
             new AppointmentViewUtil(),
-            new AppointmentAuditService(null)
+            new AppointmentAuditService(null),
+            settings
     );
 
     @Test
@@ -136,5 +139,23 @@ class AppointmentServiceNoShowTest {
         customer.setNoShowCount(noShowCount);
         customer.setBlocked(blocked);
         return customer;
+    }
+
+    private static class FakeSettingsService extends EstablishmentSettingsService {
+        FakeSettingsService() {
+            super(null);
+        }
+
+        @Override
+        public EstablishmentSettings forEstablishment(Establishment establishment) {
+            return EstablishmentSettings.defaultsFor(establishment);
+        }
+
+        @Override
+        public EstablishmentSettings forEstablishmentId(Long establishmentId) {
+            Establishment establishment = new Establishment();
+            establishment.setId(establishmentId);
+            return EstablishmentSettings.defaultsFor(establishment);
+        }
     }
 }

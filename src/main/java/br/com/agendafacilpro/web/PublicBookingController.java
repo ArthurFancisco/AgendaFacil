@@ -14,10 +14,12 @@ public class PublicBookingController {
 
     private final CatalogService catalog;
     private final AppointmentService appointments;
+    private final EstablishmentSettingsService settings;
 
-    public PublicBookingController(CatalogService c, AppointmentService a) {
+    public PublicBookingController(CatalogService c, AppointmentService a, EstablishmentSettingsService settings) {
         catalog = c;
         appointments = a;
+        this.settings = settings;
     }
 
     @GetMapping("/agenda/{slug}")
@@ -25,6 +27,7 @@ public class PublicBookingController {
         Establishment e = catalog.establishment(slug);
         model.addAttribute("establishment", e);
         model.addAttribute("services", catalog.services(e.getId()));
+        model.addAttribute("settings", settings.forEstablishment(e));
         return "public/establishment";
     }
 

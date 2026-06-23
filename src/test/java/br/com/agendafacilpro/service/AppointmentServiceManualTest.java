@@ -24,6 +24,7 @@ import br.com.agendafacilpro.domain.Appointment;
 import br.com.agendafacilpro.domain.AppointmentStatus;
 import br.com.agendafacilpro.domain.Customer;
 import br.com.agendafacilpro.domain.Establishment;
+import br.com.agendafacilpro.domain.EstablishmentSettings;
 import br.com.agendafacilpro.domain.Professional;
 import br.com.agendafacilpro.domain.ServiceItem;
 import br.com.agendafacilpro.repo.AppointmentRepo;
@@ -40,7 +41,8 @@ class AppointmentServiceManualTest {
     private final ServiceItemRepo services = mock(ServiceItemRepo.class);
     private final ProfessionalRepo professionals = mock(ProfessionalRepo.class);
     private final TimeBlockRepo blocks = mock(TimeBlockRepo.class);
-    private final BookingGuardService guard = new BookingGuardService(null);
+    private final FakeSettingsService settings = new FakeSettingsService();
+    private final BookingGuardService guard = new BookingGuardService(null, settings);
     private final FakeAuditService audit = new FakeAuditService();
     private final AppointmentService service = new AppointmentService(
             appointments,
@@ -50,7 +52,8 @@ class AppointmentServiceManualTest {
             blocks,
             guard,
             new AppointmentViewUtil(),
-            audit
+            audit,
+            settings
     );
 
     private Establishment establishment;
@@ -105,7 +108,7 @@ class AppointmentServiceManualTest {
 
         assertThatThrownBy(() -> service.createManual(establishment, user, request("Ana Cliente", "(17) 98888-7777")))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Horario ja ocupado");
+                .hasMessageContaining("nao esta mais disponivel");
 
         verify(appointments, never()).save(any(Appointment.class));
     }
@@ -199,6 +202,24 @@ class AppointmentServiceManualTest {
         public void record(Appointment appointment, AppUser user, String action, String details) {
             lastAction = action;
             lastDetails = details;
+        }
+    }
+
+    private static class FakeSettingsService extends EstablishmentSettingsService {
+        FakeSettingsService() {
+            super(null);
+        }
+
+        @Override
+        public EstablishmentSettings forEstablishment(Establishment establishment) {
+            return EstablishmentSettings.defaultsFor(establishment);
+        }
+
+        @Override
+        public EstablishmentSettings forEstablishmentId(Long establishmentId) {
+            Establishment establishment = new Establishment();
+            establishment.setId(establishmentId);
+            return EstablishmentSettings.defaultsFor(establishment);
         }
     }
 }

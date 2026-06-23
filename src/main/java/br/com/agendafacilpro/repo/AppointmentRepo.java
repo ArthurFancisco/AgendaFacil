@@ -32,6 +32,8 @@ public interface AppointmentRepo extends JpaRepository<Appointment, Long> {
 
     List<Appointment> findByEstablishmentIdAndStatusAndStartAtBefore(Long id, AppointmentStatus status, LocalDateTime now);
 
+    List<Appointment> findByEstablishmentIdAndStatusAndCreatedAtBefore(Long id, AppointmentStatus status, LocalDateTime createdBefore);
+
     @Query("""
     select count(a)>0 from Appointment a
     where a.establishment.id=:establishmentId and a.professional.id=:professionalId
@@ -39,6 +41,15 @@ public interface AppointmentRepo extends JpaRepository<Appointment, Long> {
       and (:ignoreId is null or a.id<>:ignoreId)
   """)
     boolean existsBlockingOverlap(@Param("establishmentId") Long establishmentId, @Param("professionalId") Long professionalId, @Param("startAt") LocalDateTime startAt, @Param("endAt") LocalDateTime endAt, @Param("statuses") Collection<AppointmentStatus> statuses, @Param("ignoreId") Long ignoreId);
+
+    @Query("""
+    select count(a) from Appointment a
+    where a.establishment.id=:establishmentId
+      and a.customer.phoneNormalized=:phoneNormalized
+      and a.status in :statuses
+      and a.startAt>:now
+  """)
+    long countFutureByPhone(@Param("establishmentId") Long establishmentId, @Param("phoneNormalized") String phoneNormalized, @Param("statuses") Collection<AppointmentStatus> statuses, @Param("now") LocalDateTime now);
 
     @Query("""
     select a from Appointment a
