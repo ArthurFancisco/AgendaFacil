@@ -79,6 +79,8 @@ class AppointmentServiceNoShowTest {
 
         when(appointments.findByEstablishmentIdAndStatusAndStartAtBefore(eq(1L), eq(AppointmentStatus.PENDING_APPROVAL), any(LocalDateTime.class)))
                 .thenReturn(List.of());
+        when(appointments.findByEstablishmentIdAndStatusAndCreatedAtBefore(eq(1L), eq(AppointmentStatus.PENDING_APPROVAL), any(LocalDateTime.class)))
+                .thenReturn(List.of());
         when(services.findByIdAndEstablishmentId(2L, 1L)).thenReturn(Optional.of(serviceItem));
         when(professionals.findByIdAndEstablishmentId(3L, 1L)).thenReturn(Optional.of(professional));
         when(blocks.existsOverlap(eq(1L), eq(3L), any(LocalDateTime.class), any(LocalDateTime.class))).thenReturn(false);

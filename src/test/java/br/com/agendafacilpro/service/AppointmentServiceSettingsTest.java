@@ -85,6 +85,7 @@ class AppointmentServiceSettingsTest {
         Appointment appointment = create();
 
         assertThat(appointment.getStatus()).isEqualTo(AppointmentStatus.PENDING_APPROVAL);
+        assertThat(appointment.getPublicToken()).isNotBlank();
     }
 
     @Test
@@ -160,6 +161,22 @@ class AppointmentServiceSettingsTest {
         service.expire(1L, settingsService.settings);
 
         assertThat(pending.getStatus()).isEqualTo(AppointmentStatus.EXPIRED);
+    }
+
+    @Test
+    void approveDoesNotConfirmExpiredPending() {
+        Appointment pending = new Appointment();
+        pending.setStatus(AppointmentStatus.PENDING_APPROVAL);
+        pending.setStartAt(LocalDateTime.now().plusDays(1));
+        pending.setCreatedAt(LocalDateTime.now().minusHours(2));
+        when(appointments.findByIdAndEstablishmentId(99L, 1L)).thenReturn(Optional.of(pending));
+
+        assertThatThrownBy(() -> service.approve(99L, 1L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("expirou antes da aprovação");
+
+        assertThat(pending.getStatus()).isEqualTo(AppointmentStatus.EXPIRED);
+        assertThat(pending.getCancellationReason()).isEqualTo("Reserva pendente expirou antes da aprovação");
     }
 
     private Appointment create() {

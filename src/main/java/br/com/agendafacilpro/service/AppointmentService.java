@@ -2,10 +2,12 @@ package br.com.agendafacilpro.service;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.security.SecureRandom;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
 
@@ -31,6 +33,8 @@ import br.com.agendafacilpro.util.PhoneNormalizer;
 
 @Service
 public class AppointmentService {
+
+    private static final SecureRandom TOKEN_RANDOM = new SecureRandom();
 
     private final AppointmentRepo appointments;
     private final CustomerRepo customers;
@@ -98,18 +102,18 @@ public class AppointmentService {
         }
         ServiceItem serviceItem = services.findByIdAndEstablishmentId(serviceId, est.getId())
                 .filter(ServiceItem::isActive)
-                .orElseThrow(() -> new IllegalArgumentException("Servico indisponivel."));
+                .orElseThrow(() -> new IllegalArgumentException("Serviço indisponível."));
         Professional professional = professionals.findByIdAndEstablishmentId(professionalId, est.getId())
                 .filter(Professional::isActive)
-                .orElseThrow(() -> new IllegalArgumentException("Profissional indisponivel."));
+                .orElseThrow(() -> new IllegalArgumentException("Profissional indisponível."));
         LocalDateTime start = LocalDateTime.of(date, time);
         LocalDateTime end = start.plusMinutes(serviceItem.getDurationMinutes());
         if (!start.isAfter(LocalDateTime.now().minusMinutes(1))) {
-            throw new IllegalArgumentException("Esse horario ja passou. Escolha outro horario disponivel.");
+            throw new IllegalArgumentException("Esse horário já passou. Escolha outro horário disponível.");
         }
         noConflict(est.getId(), professional.getId(), start, end, null);
         if (appointments.countFutureByPhone(est.getId(), decision.normalizedPhone(), AppointmentRules.blockingStatuses(), LocalDateTime.now()) >= settings.getMaxFutureAppointmentsPerPhone()) {
-            throw new IllegalArgumentException("Para marcar um novo horario, fale com o estabelecimento.");
+            throw new IllegalArgumentException("Para marcar um novo horário, fale com o estabelecimento.");
         }
 
         Optional<Customer> existing = customers.findByEstablishmentIdAndPhoneNormalized(est.getId(), decision.normalizedPhone());
@@ -119,7 +123,7 @@ public class AppointmentService {
         customer.setName(name.trim());
         customer.setPhoneNormalized(decision.normalizedPhone());
         if (customer.isBlocked() || customer.getNoShowCount() >= settings.getNoShowCountForBlock()) {
-            throw new IllegalArgumentException("Para marcar um novo horario, fale com o estabelecimento.");
+            throw new IllegalArgumentException("Para marcar um novo horário, fale com o estabelecimento.");
         }
         customer = customers.save(customer);
 
@@ -130,6 +134,7 @@ public class AppointmentService {
         appointment.setProfessional(professional);
         appointment.setStartAt(start);
         appointment.setEndAt(end);
+        appointment.setPublicToken(newPublicToken());
         appointment.setClientIp(ip);
         appointment.setStatus(requiresApproval(isNew, customer, serviceItem, settings) ? AppointmentStatus.PENDING_APPROVAL : AppointmentStatus.CONFIRMED);
         return appointments.save(appointment);
@@ -144,17 +149,18 @@ public class AppointmentService {
         if (request.customerName() == null || request.customerName().trim().length() < 2) {
             throw new IllegalArgumentException("Informe o nome do cliente.");
         }
+        expire(est.getId());
         String normalizedPhone = PhoneNormalizer.normalize(request.customerPhone());
         ServiceItem serviceItem = services.findByIdAndEstablishmentId(request.serviceId(), est.getId())
                 .filter(ServiceItem::isActive)
-                .orElseThrow(() -> new IllegalArgumentException("Servico indisponivel."));
+                .orElseThrow(() -> new IllegalArgumentException("Serviço indisponível."));
         Professional professional = professionals.findByIdAndEstablishmentId(request.professionalId(), est.getId())
                 .filter(Professional::isActive)
-                .orElseThrow(() -> new IllegalArgumentException("Profissional indisponivel."));
+                .orElseThrow(() -> new IllegalArgumentException("Profissional indisponível."));
         LocalDateTime start = LocalDateTime.of(request.date(), request.time());
         LocalDateTime end = start.plusMinutes(serviceItem.getDurationMinutes());
         if (!start.isAfter(LocalDateTime.now().minusMinutes(1))) {
-            throw new IllegalArgumentException("Esse horario ja passou. Escolha outro horario disponivel.");
+            throw new IllegalArgumentException("Esse horário já passou. Escolha outro horário disponível.");
         }
         noConflict(est.getId(), professional.getId(), start, end, null);
 
@@ -175,6 +181,7 @@ public class AppointmentService {
         appointment.setProfessional(professional);
         appointment.setStartAt(start);
         appointment.setEndAt(end);
+        appointment.setPublicToken(newPublicToken());
         appointment.setStatus(AppointmentStatus.CONFIRMED);
         appointment.setClientIp("manual");
         appointment.setInternalNote(blankToNull(request.internalNote()));
@@ -185,8 +192,8 @@ public class AppointmentService {
     }
 
     @Transactional(readOnly = true)
-    public Summary summary(Establishment est, Long id) {
-        Appointment appointment = appointments.findByIdAndEstablishmentId(id, est.getId())
+    public Summary summary(Establishment est, String publicToken) {
+        Appointment appointment = appointments.findByEstablishmentIdAndPublicToken(est.getId(), publicToken)
                 .orElseThrow(() -> new IllegalArgumentException("Agendamento nao encontrado."));
         String text = "Ola! Fiz uma solicitacao de agendamento para " + appointment.getServiceItem().getName() + " com " + appointment.getProfessional().getName() + ".";
         String url = "https://wa.me/" + est.getWhatsapp() + "?text=" + URLEncoder.encode(text, StandardCharsets.UTF_8);
@@ -206,6 +213,12 @@ public class AppointmentService {
         Appointment appointment = owned(id, est);
         if (appointment.getStatus() != AppointmentStatus.PENDING_APPROVAL) {
             throw new IllegalStateException("Essa reserva nao esta pendente.");
+        }
+        EstablishmentSettings settings = settingsService.forEstablishmentId(est);
+        if (isExpiredPending(appointment, settings, LocalDateTime.now())) {
+            appointment.setStatus(AppointmentStatus.EXPIRED);
+            appointment.setCancellationReason("Reserva pendente expirou antes da aprovação");
+            throw new IllegalStateException("Essa reserva pendente expirou antes da aprovação. O horário voltou a ficar disponível.");
         }
         noConflict(est, appointment.getProfessional().getId(), appointment.getStartAt(), appointment.getEndAt(), appointment.getId());
         appointment.setStatus(AppointmentStatus.CONFIRMED);
@@ -326,10 +339,10 @@ public class AppointmentService {
 
     private void noConflict(Long est, Long prof, LocalDateTime start, LocalDateTime end, Long ignore) {
         if (blocks.existsOverlap(est, prof, start, end)) {
-            throw new IllegalArgumentException("Esse horario foi bloqueado pelo estabelecimento.");
+            throw new IllegalArgumentException("Esse horário foi bloqueado pelo estabelecimento.");
         }
         if (appointments.existsBlockingOverlap(est, prof, start, end, AppointmentRules.blockingStatuses(), ignore)) {
-            throw new IllegalArgumentException("Esse horario nao esta mais disponivel.");
+            throw new IllegalArgumentException("Esse horário não está mais disponível.");
         }
     }
 
@@ -359,5 +372,22 @@ public class AppointmentService {
         return (isNew && settings.isNewClientRequiresApproval())
                 || customer.getNoShowCount() >= settings.getNoShowCountForManualApproval()
                 || serviceItem.getDurationMinutes() > settings.getLongServiceManualApprovalMinutes();
+    }
+
+    private boolean isExpiredPending(Appointment appointment, EstablishmentSettings settings, LocalDateTime now) {
+        return !appointment.getStartAt().isAfter(now)
+                || appointment.getCreatedAt().plusMinutes(settings.getPendingExpirationMinutes()).isBefore(now);
+    }
+
+    private String newPublicToken() {
+        for (int i = 0; i < 10; i++) {
+            byte[] bytes = new byte[18];
+            TOKEN_RANDOM.nextBytes(bytes);
+            String token = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+            if (!appointments.existsByPublicToken(token)) {
+                return token;
+            }
+        }
+        throw new IllegalStateException("Não foi possível gerar um identificador seguro para o agendamento.");
     }
 }

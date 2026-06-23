@@ -1,0 +1,19 @@
+package br.com.agendafacilpro.config;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+import org.junit.jupiter.api.Test;
+
+class ApplicationYamlSecurityTest {
+
+    @Test
+    void applicationYamlDoesNotContainLocalDatabasePassword() throws Exception {
+        String yaml = Files.readString(Path.of("src/main/resources/application.yml"));
+
+        assertThat(yaml).doesNotContain("postdba");
+        assertThat(yaml).contains("password: ${DB_PASSWORD:}");
+    }
+}

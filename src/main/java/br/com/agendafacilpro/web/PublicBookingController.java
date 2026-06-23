@@ -67,13 +67,13 @@ public class PublicBookingController {
     String confirm(@PathVariable String slug, @RequestParam Long serviceId, @RequestParam Long professionalId, @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date, @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime time, @RequestParam String customerName, @RequestParam String customerPhone, @RequestParam(required = false) String website, HttpServletRequest request) {
         Establishment e = catalog.establishment(slug);
         Appointment a = appointments.create(e, serviceId, professionalId, date, time, customerName, customerPhone, request.getRemoteAddr(), website);
-        return "redirect:/agenda/" + slug + "/sucesso/" + a.getId();
+        return "redirect:/agenda/" + slug + "/sucesso/" + a.getPublicToken();
     }
 
-    @GetMapping("/agenda/{slug}/sucesso/{id}")
-    String success(@PathVariable String slug, @PathVariable Long id, Model model) {
+    @GetMapping("/agenda/{slug}/sucesso/{publicToken:[A-Za-z0-9_-]{24,64}}")
+    String success(@PathVariable String slug, @PathVariable String publicToken, Model model) {
         Establishment e = catalog.establishment(slug);
-        model.addAttribute("summary", appointments.summary(e, id));
+        model.addAttribute("summary", appointments.summary(e, publicToken));
         return "public/success";
     }
 }

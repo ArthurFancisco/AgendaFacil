@@ -94,45 +94,69 @@ public class PanelController {
                   @RequestParam(required = false) String internalNote,
                   @RequestParam(defaultValue = "false") boolean forceBlockedCustomer,
                   RedirectAttributes r) {
-        AppUser user = current.user();
-        appointments.createManual(user.getEstablishment(), user, new ManualAppointmentRequest(customerName, customerPhone, serviceId, professionalId, date, time, internalNote, forceBlockedCustomer));
-        r.addFlashAttribute("success", "Novo agendamento confirmado. Esse horario ficou indisponivel na agenda publica.");
-        return "redirect:/panel#agenda";
+        try {
+            AppUser user = current.user();
+            appointments.createManual(user.getEstablishment(), user, new ManualAppointmentRequest(customerName, customerPhone, serviceId, professionalId, date, time, internalNote, forceBlockedCustomer));
+            r.addFlashAttribute("success", "Novo agendamento confirmado. Esse horário ficou indisponível na agenda pública.");
+            return "redirect:/panel#agenda";
+        } catch (IllegalArgumentException | IllegalStateException ex) {
+            return panelError(r, ex.getMessage(), "novo-agendamento");
+        }
     }
 
     @PostMapping("/panel/appointments/{id}/approve")
     String approve(@PathVariable Long id, RedirectAttributes r) {
-        appointments.approve(id, current.establishmentId(), current.user());
-        r.addFlashAttribute("success", "Reserva aprovada e horario confirmado.");
-        return "redirect:/panel";
+        try {
+            appointments.approve(id, current.establishmentId(), current.user());
+            r.addFlashAttribute("success", "Reserva aprovada e horário confirmado.");
+            return "redirect:/panel";
+        } catch (IllegalArgumentException | IllegalStateException ex) {
+            return panelError(r, ex.getMessage(), "pendentes");
+        }
     }
 
     @PostMapping("/panel/appointments/{id}/reject")
     String reject(@PathVariable Long id, RedirectAttributes r) {
-        appointments.reject(id, current.establishmentId(), current.user());
-        r.addFlashAttribute("success", "Reserva recusada. O horario voltou a ficar disponivel.");
-        return "redirect:/panel";
+        try {
+            appointments.reject(id, current.establishmentId(), current.user());
+            r.addFlashAttribute("success", "Reserva recusada. O horário voltou a ficar disponível.");
+            return "redirect:/panel";
+        } catch (IllegalArgumentException | IllegalStateException ex) {
+            return panelError(r, ex.getMessage(), "pendentes");
+        }
     }
 
     @PostMapping("/panel/appointments/{id}/complete")
     String complete(@PathVariable Long id, RedirectAttributes r) {
-        appointments.complete(id, current.establishmentId(), current.user());
-        r.addFlashAttribute("success", "Atendimento marcado como concluido.");
-        return "redirect:/panel";
+        try {
+            appointments.complete(id, current.establishmentId(), current.user());
+            r.addFlashAttribute("success", "Atendimento marcado como concluído.");
+            return "redirect:/panel";
+        } catch (IllegalArgumentException | IllegalStateException ex) {
+            return panelError(r, ex.getMessage(), "agenda");
+        }
     }
 
     @PostMapping("/panel/appointments/{id}/no-show")
     String noShow(@PathVariable Long id, RedirectAttributes r) {
-        appointments.noShow(id, current.establishmentId(), current.user());
-        r.addFlashAttribute("success", "Falta registrada no historico do cliente.");
-        return "redirect:/panel";
+        try {
+            appointments.noShow(id, current.establishmentId(), current.user());
+            r.addFlashAttribute("success", "Falta registrada no histórico do cliente.");
+            return "redirect:/panel";
+        } catch (IllegalArgumentException | IllegalStateException ex) {
+            return panelError(r, ex.getMessage(), "agenda");
+        }
     }
 
     @PostMapping("/panel/appointments/{id}/cancel")
     String cancel(@PathVariable Long id, @RequestParam(required = false) String reason, RedirectAttributes r) {
-        appointments.cancel(id, current.establishmentId(), reason, current.user());
-        r.addFlashAttribute("success", "Agendamento cancelado sem apagar o historico.");
-        return "redirect:/panel";
+        try {
+            appointments.cancel(id, current.establishmentId(), reason, current.user());
+            r.addFlashAttribute("success", "Agendamento cancelado sem apagar o histórico.");
+            return "redirect:/panel";
+        } catch (IllegalArgumentException | IllegalStateException ex) {
+            return panelError(r, ex.getMessage(), "agenda");
+        }
     }
 
     @PostMapping("/panel/services")
@@ -145,7 +169,7 @@ public class PanelController {
         s.setPrice(price);
         s.setDescription(description);
         services.save(s);
-        r.addFlashAttribute("success", "Servico cadastrado.");
+        r.addFlashAttribute("success", "Serviço cadastrado.");
         return "redirect:/panel#configuracoes";
     }
 
@@ -154,7 +178,7 @@ public class PanelController {
         ServiceItem s = services.findByIdAndEstablishmentId(id, current.establishmentId()).orElseThrow();
         s.setActive(!s.isActive());
         services.save(s);
-        r.addFlashAttribute("success", s.isActive() ? "Servico reativado." : "Servico pausado.");
+        r.addFlashAttribute("success", s.isActive() ? "Serviço reativado." : "Serviço pausado.");
         return "redirect:/panel#configuracoes";
     }
 
@@ -193,7 +217,7 @@ public class PanelController {
             b.setProfessional(professionals.findByIdAndEstablishmentId(professionalId, u.getEstablishment().getId()).orElseThrow());
         }
         blocks.save(b);
-        r.addFlashAttribute("success", "Bloqueio de horario criado.");
+        r.addFlashAttribute("success", "Bloqueio de horário criado.");
         return "redirect:/panel#configuracoes";
     }
 
@@ -218,20 +242,24 @@ public class PanelController {
                     @RequestParam int longServiceManualApprovalMinutes,
                     @RequestParam(defaultValue = "false") boolean showPricesOnPublicPage,
                     RedirectAttributes r) {
-        settingsService.update(current.user().getEstablishment(), new EstablishmentSettingsForm(
-                newClientRequiresApproval,
-                pendingExpirationMinutes,
-                maxFutureAppointmentsPerPhone,
-                maxAttemptsPerPhoneHour,
-                maxAttemptsPerIpHour,
-                noShowCountForManualApproval,
-                noShowCountForBlock,
-                minHoursBeforeClientCancel,
-                longServiceManualApprovalMinutes,
-                showPricesOnPublicPage
-        ));
-        r.addFlashAttribute("success", "Configuracoes salvas para este estabelecimento.");
-        return "redirect:/panel#configuracoes";
+        try {
+            settingsService.update(current.user().getEstablishment(), new EstablishmentSettingsForm(
+                    newClientRequiresApproval,
+                    pendingExpirationMinutes,
+                    maxFutureAppointmentsPerPhone,
+                    maxAttemptsPerPhoneHour,
+                    maxAttemptsPerIpHour,
+                    noShowCountForManualApproval,
+                    noShowCountForBlock,
+                    minHoursBeforeClientCancel,
+                    longServiceManualApprovalMinutes,
+                    showPricesOnPublicPage
+            ));
+            r.addFlashAttribute("success", "Configurações salvas para este estabelecimento.");
+            return "redirect:/panel#configuracoes";
+        } catch (IllegalArgumentException | IllegalStateException ex) {
+            return panelError(r, ex.getMessage(), "configuracoes");
+        }
     }
 
     private Customer lookupCustomer(Long establishmentId, String phone) {
@@ -244,5 +272,10 @@ public class PanelController {
         } catch (IllegalArgumentException ex) {
             return null;
         }
+    }
+
+    private String panelError(RedirectAttributes r, String message, String anchor) {
+        r.addFlashAttribute("error", message == null || message.isBlank() ? "Não foi possível concluir essa ação." : message);
+        return "redirect:/panel#" + anchor;
     }
 }

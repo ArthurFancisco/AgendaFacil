@@ -39,6 +39,9 @@ public class Appointment {
     private LocalDateTime startAt;
     private LocalDateTime endAt;
 
+    @Column(nullable = false, unique = true, length = 64)
+    private String publicToken;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 40)
     private AppointmentStatus status;
@@ -114,6 +117,14 @@ public class Appointment {
 
     public void setEndAt(LocalDateTime endAt) {
         this.endAt = endAt;
+    }
+
+    public String getPublicToken() {
+        return publicToken;
+    }
+
+    public void setPublicToken(String publicToken) {
+        this.publicToken = publicToken;
     }
 
     public AppointmentStatus getStatus() {

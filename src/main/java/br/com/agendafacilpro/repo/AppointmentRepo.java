@@ -16,6 +16,10 @@ public interface AppointmentRepo extends JpaRepository<Appointment, Long> {
 
     Optional<Appointment> findByIdAndEstablishmentId(Long id, Long establishmentId);
 
+    Optional<Appointment> findByEstablishmentIdAndPublicToken(Long establishmentId, String publicToken);
+
+    boolean existsByPublicToken(String publicToken);
+
     long countByEstablishmentIdAndStartAtBetween(Long id, LocalDateTime start, LocalDateTime end);
 
     long countByEstablishmentIdAndStatusAndStartAtBetween(Long id, AppointmentStatus status, LocalDateTime start, LocalDateTime end);

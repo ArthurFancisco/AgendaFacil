@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -18,6 +19,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 
 import br.com.agendafacilpro.domain.AppUser;
 import br.com.agendafacilpro.domain.Appointment;
@@ -68,6 +70,8 @@ class AppointmentServiceManualTest {
         serviceItem = serviceItem(establishment);
         professional = professional(establishment);
 
+        when(appointments.findByEstablishmentIdAndStatusAndStartAtBefore(eq(1L), eq(AppointmentStatus.PENDING_APPROVAL), any(LocalDateTime.class))).thenReturn(List.of());
+        when(appointments.findByEstablishmentIdAndStatusAndCreatedAtBefore(eq(1L), eq(AppointmentStatus.PENDING_APPROVAL), any(LocalDateTime.class))).thenReturn(List.of());
         when(services.findByIdAndEstablishmentId(2L, 1L)).thenReturn(Optional.of(serviceItem));
         when(professionals.findByIdAndEstablishmentId(3L, 1L)).thenReturn(Optional.of(professional));
         when(blocks.existsOverlap(eq(1L), eq(3L), any(LocalDateTime.class), any(LocalDateTime.class))).thenReturn(false);
@@ -86,6 +90,7 @@ class AppointmentServiceManualTest {
         verify(customers).save(customerCaptor.capture());
         assertThat(customerCaptor.getValue().getPhoneNormalized()).isEqualTo("17988887777");
         assertThat(appointment.getStatus()).isEqualTo(AppointmentStatus.CONFIRMED);
+        assertThat(appointment.getPublicToken()).isNotBlank();
         assertThat(appointment.getInternalNote()).isEqualTo("chegou pelo telefone");
         assertThat(audit.lastAction).isEqualTo("MANUAL_CREATE");
     }
@@ -108,9 +113,40 @@ class AppointmentServiceManualTest {
 
         assertThatThrownBy(() -> service.createManual(establishment, user, request("Ana Cliente", "(17) 98888-7777")))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("nao esta mais disponivel");
+                .hasMessageContaining("não está mais disponível");
 
         verify(appointments, never()).save(any(Appointment.class));
+    }
+
+    @Test
+    void manualBookingExpiresOldPendingBeforeCheckingConflict() {
+        when(customers.findByEstablishmentIdAndPhoneNormalized(1L, "17988887777")).thenReturn(Optional.empty());
+
+        service.createManual(establishment, user, request("Ana Cliente", "(17) 98888-7777"));
+
+        InOrder order = inOrder(appointments);
+        order.verify(appointments).findByEstablishmentIdAndStatusAndStartAtBefore(eq(1L), eq(AppointmentStatus.PENDING_APPROVAL), any(LocalDateTime.class));
+        order.verify(appointments).findByEstablishmentIdAndStatusAndCreatedAtBefore(eq(1L), eq(AppointmentStatus.PENDING_APPROVAL), any(LocalDateTime.class));
+        order.verify(appointments).existsBlockingOverlap(eq(1L), eq(3L), any(LocalDateTime.class), any(LocalDateTime.class), any(), any());
+    }
+
+    @Test
+    void summaryUsesPublicTokenInsteadOfSequentialId() {
+        Appointment appointment = new Appointment();
+        appointment.setEstablishment(establishment);
+        appointment.setCustomer(customer(establishment, 0, false));
+        appointment.setServiceItem(serviceItem);
+        appointment.setProfessional(professional);
+        appointment.setStartAt(LocalDateTime.now().plusDays(1));
+        appointment.setEndAt(LocalDateTime.now().plusDays(1).plusHours(1));
+        appointment.setStatus(AppointmentStatus.CONFIRMED);
+        appointment.setPublicToken("public-token-123456789012");
+        when(appointments.findByEstablishmentIdAndPublicToken(1L, "public-token-123456789012")).thenReturn(Optional.of(appointment));
+
+        AppointmentService.Summary summary = service.summary(establishment, "public-token-123456789012");
+
+        assertThat(summary.customer()).isEqualTo("Ana Cliente");
+        verify(appointments, never()).findByIdAndEstablishmentId(any(), any());
     }
 
     @Test
