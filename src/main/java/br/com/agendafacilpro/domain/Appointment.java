@@ -45,6 +45,8 @@ public class Appointment {
 
     private String cancellationReason;
     private String clientIp;
+    @Column(length = 500)
+    private String internalNote;
     private LocalDateTime createdAt = LocalDateTime.now();
     private LocalDateTime updatedAt = LocalDateTime.now();
     private LocalDateTime approvedAt;
@@ -136,6 +138,14 @@ public class Appointment {
 
     public void setClientIp(String clientIp) {
         this.clientIp = clientIp;
+    }
+
+    public String getInternalNote() {
+        return internalNote;
+    }
+
+    public void setInternalNote(String internalNote) {
+        this.internalNote = internalNote;
     }
 
     public LocalDateTime getCreatedAt() {

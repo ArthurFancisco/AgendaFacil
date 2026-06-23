@@ -39,4 +39,14 @@ public interface AppointmentRepo extends JpaRepository<Appointment, Long> {
       and (:ignoreId is null or a.id<>:ignoreId)
   """)
     boolean existsBlockingOverlap(@Param("establishmentId") Long establishmentId, @Param("professionalId") Long professionalId, @Param("startAt") LocalDateTime startAt, @Param("endAt") LocalDateTime endAt, @Param("statuses") Collection<AppointmentStatus> statuses, @Param("ignoreId") Long ignoreId);
+
+    @Query("""
+    select a from Appointment a
+    where a.establishment.id=:establishmentId
+      and a.startAt>=:startAt and a.startAt<:endAt
+      and (:professionalId is null or a.professional.id=:professionalId)
+      and (:status is null or a.status=:status)
+    order by a.startAt asc
+  """)
+    List<Appointment> findAgenda(@Param("establishmentId") Long establishmentId, @Param("startAt") LocalDateTime startAt, @Param("endAt") LocalDateTime endAt, @Param("professionalId") Long professionalId, @Param("status") AppointmentStatus status);
 }

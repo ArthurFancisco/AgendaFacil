@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import br.com.agendafacilpro.domain.BookingAttempt;
 import br.com.agendafacilpro.domain.Establishment;
 import br.com.agendafacilpro.repo.BookingAttemptRepo;
+import br.com.agendafacilpro.util.PhoneNormalizer;
 
 @Service
 public class BookingGuardService {
@@ -22,17 +23,20 @@ public class BookingGuardService {
     }
 
     public String normalizePhone(String phone) {
-        String d = phone == null ? "" : phone.replaceAll("\\D", "");
-        return d.startsWith("55") && d.length() == 13 ? d.substring(2) : d;
+        return PhoneNormalizer.normalize(phone);
     }
 
+    /**
+     * Aplica as barreiras antifraude da página pública antes de criar a reserva.
+     * A decisão registra tentativas por estabelecimento, telefone e IP sem expor dados sensíveis no log.
+     */
     @Transactional
     public Decision check(Establishment est, String phone, String ip, String honeypot) {
-        String normalized = normalizePhone(phone);
+        String normalized = PhoneNormalizer.digitsWithoutBrazilCountryCode(phone);
         if (honeypot != null && !honeypot.isBlank()) {
             return block(est, normalized, ip, "Honeypot preenchido", "Não conseguimos confirmar essa solicitação. Tente novamente em alguns minutos.");
         }
-        if (normalized.length() < 10 || normalized.length() > 11) {
+        if (!PhoneNormalizer.isValidNormalized(normalized)) {
             return block(est, normalized, ip, "Telefone inválido", "Confira o número do WhatsApp e tente de novo.");
         }
         LocalDateTime since = LocalDateTime.now().minusMinutes(30);

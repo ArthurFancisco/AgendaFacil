@@ -1,7 +1,9 @@
 package br.com.agendafacilpro.web;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.stereotype.Controller;
@@ -13,15 +15,20 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import br.com.agendafacilpro.domain.AppUser;
+import br.com.agendafacilpro.domain.AppointmentStatus;
+import br.com.agendafacilpro.domain.Customer;
 import br.com.agendafacilpro.domain.Professional;
 import br.com.agendafacilpro.domain.ServiceItem;
 import br.com.agendafacilpro.domain.TimeBlock;
+import br.com.agendafacilpro.repo.CustomerRepo;
 import br.com.agendafacilpro.repo.ProfessionalRepo;
 import br.com.agendafacilpro.repo.ServiceItemRepo;
 import br.com.agendafacilpro.repo.TimeBlockRepo;
 import br.com.agendafacilpro.service.AppointmentService;
 import br.com.agendafacilpro.service.CurrentUserService;
 import br.com.agendafacilpro.service.DashboardService;
+import br.com.agendafacilpro.service.ManualAppointmentRequest;
+import br.com.agendafacilpro.util.PhoneNormalizer;
 
 @Controller
 public class PanelController {
@@ -32,61 +39,94 @@ public class PanelController {
     private final ServiceItemRepo services;
     private final ProfessionalRepo professionals;
     private final TimeBlockRepo blocks;
+    private final CustomerRepo customers;
 
-    public PanelController(CurrentUserService c, DashboardService d, AppointmentService a, ServiceItemRepo s, ProfessionalRepo p, TimeBlockRepo b) {
+    public PanelController(CurrentUserService c, DashboardService d, AppointmentService a, ServiceItemRepo s, ProfessionalRepo p, TimeBlockRepo b, CustomerRepo customers) {
         current = c;
         dashboard = d;
         appointments = a;
         services = s;
         professionals = p;
         blocks = b;
+        this.customers = customers;
     }
 
     @GetMapping("/panel")
-    String panel(Model model) {
+    String panel(@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+                 @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+                 @RequestParam(required = false) Long professionalId,
+                 @RequestParam(required = false) AppointmentStatus status,
+                 @RequestParam(required = false) String customerPhone,
+                 Model model) {
         AppUser u = current.user();
         Long est = u.getEstablishment().getId();
+        LocalDate selectedStart = startDate == null ? LocalDate.now() : startDate;
+        DashboardService.Filter filter = new DashboardService.Filter(selectedStart, endDate == null ? selectedStart : endDate, professionalId, status);
         model.addAttribute("user", u);
         model.addAttribute("establishment", u.getEstablishment());
-        model.addAttribute("dashboard", dashboard.data(est));
+        model.addAttribute("dashboard", dashboard.data(est, filter));
         model.addAttribute("services", services.findByEstablishmentIdOrderByActiveDescSortOrderAscNameAsc(est));
+        model.addAttribute("activeServices", services.findByEstablishmentIdAndActiveTrueOrderBySortOrderAscNameAsc(est));
         model.addAttribute("professionals", professionals.findByEstablishmentIdOrderByActiveDescSortOrderAscNameAsc(est));
+        model.addAttribute("activeProfessionals", professionals.findByEstablishmentIdAndActiveTrueOrderBySortOrderAscNameAsc(est));
         model.addAttribute("timeBlocks", blocks.findTop20ByEstablishmentIdOrderByStartAtDesc(est));
+        model.addAttribute("statuses", AppointmentStatus.values());
+        model.addAttribute("filter", filter);
+        model.addAttribute("todayDate", LocalDate.now());
+        model.addAttribute("next7Date", LocalDate.now().plusDays(6));
+        model.addAttribute("customerLookupPhone", customerPhone);
+        model.addAttribute("customerLookup", lookupCustomer(est, customerPhone));
         return "panel/dashboard";
+    }
+
+    @PostMapping("/panel/appointments/manual")
+    String manual(@RequestParam String customerName,
+                  @RequestParam String customerPhone,
+                  @RequestParam Long serviceId,
+                  @RequestParam Long professionalId,
+                  @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+                  @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime time,
+                  @RequestParam(required = false) String internalNote,
+                  @RequestParam(defaultValue = "false") boolean forceBlockedCustomer,
+                  RedirectAttributes r) {
+        AppUser user = current.user();
+        appointments.createManual(user.getEstablishment(), user, new ManualAppointmentRequest(customerName, customerPhone, serviceId, professionalId, date, time, internalNote, forceBlockedCustomer));
+        r.addFlashAttribute("success", "Novo agendamento confirmado. Esse horario ficou indisponivel na agenda publica.");
+        return "redirect:/panel#agenda";
     }
 
     @PostMapping("/panel/appointments/{id}/approve")
     String approve(@PathVariable Long id, RedirectAttributes r) {
-        appointments.approve(id, current.establishmentId());
-        r.addFlashAttribute("success", "Reserva aprovada e horário confirmado.");
+        appointments.approve(id, current.establishmentId(), current.user());
+        r.addFlashAttribute("success", "Reserva aprovada e horario confirmado.");
         return "redirect:/panel";
     }
 
     @PostMapping("/panel/appointments/{id}/reject")
     String reject(@PathVariable Long id, RedirectAttributes r) {
-        appointments.reject(id, current.establishmentId());
-        r.addFlashAttribute("success", "Reserva recusada. O horário voltou a ficar disponível.");
+        appointments.reject(id, current.establishmentId(), current.user());
+        r.addFlashAttribute("success", "Reserva recusada. O horario voltou a ficar disponivel.");
         return "redirect:/panel";
     }
 
     @PostMapping("/panel/appointments/{id}/complete")
     String complete(@PathVariable Long id, RedirectAttributes r) {
-        appointments.complete(id, current.establishmentId());
-        r.addFlashAttribute("success", "Atendimento marcado como concluído.");
+        appointments.complete(id, current.establishmentId(), current.user());
+        r.addFlashAttribute("success", "Atendimento marcado como concluido.");
         return "redirect:/panel";
     }
 
     @PostMapping("/panel/appointments/{id}/no-show")
     String noShow(@PathVariable Long id, RedirectAttributes r) {
-        appointments.noShow(id, current.establishmentId());
-        r.addFlashAttribute("success", "Falta registrada no histórico do cliente.");
+        appointments.noShow(id, current.establishmentId(), current.user());
+        r.addFlashAttribute("success", "Falta registrada no historico do cliente.");
         return "redirect:/panel";
     }
 
     @PostMapping("/panel/appointments/{id}/cancel")
     String cancel(@PathVariable Long id, @RequestParam(required = false) String reason, RedirectAttributes r) {
-        appointments.cancel(id, current.establishmentId(), reason);
-        r.addFlashAttribute("success", "Agendamento cancelado sem apagar o histórico.");
+        appointments.cancel(id, current.establishmentId(), reason, current.user());
+        r.addFlashAttribute("success", "Agendamento cancelado sem apagar o historico.");
         return "redirect:/panel";
     }
 
@@ -100,7 +140,7 @@ public class PanelController {
         s.setPrice(price);
         s.setDescription(description);
         services.save(s);
-        r.addFlashAttribute("success", "Serviço cadastrado.");
+        r.addFlashAttribute("success", "Servico cadastrado.");
         return "redirect:/panel#configuracoes";
     }
 
@@ -109,7 +149,7 @@ public class PanelController {
         ServiceItem s = services.findByIdAndEstablishmentId(id, current.establishmentId()).orElseThrow();
         s.setActive(!s.isActive());
         services.save(s);
-        r.addFlashAttribute("success", s.isActive() ? "Serviço reativado." : "Serviço pausado.");
+        r.addFlashAttribute("success", s.isActive() ? "Servico reativado." : "Servico pausado.");
         return "redirect:/panel#configuracoes";
     }
 
@@ -148,7 +188,7 @@ public class PanelController {
             b.setProfessional(professionals.findByIdAndEstablishmentId(professionalId, u.getEstablishment().getId()).orElseThrow());
         }
         blocks.save(b);
-        r.addFlashAttribute("success", "Bloqueio de horário criado.");
+        r.addFlashAttribute("success", "Bloqueio de horario criado.");
         return "redirect:/panel#configuracoes";
     }
 
@@ -159,5 +199,17 @@ public class PanelController {
         blocks.save(b);
         r.addFlashAttribute("success", b.isActive() ? "Bloqueio reativado." : "Bloqueio pausado.");
         return "redirect:/panel#configuracoes";
+    }
+
+    private Customer lookupCustomer(Long establishmentId, String phone) {
+        if (phone == null || phone.isBlank()) {
+            return null;
+        }
+        try {
+            String normalized = PhoneNormalizer.normalize(phone);
+            return customers.findByEstablishmentIdAndPhoneNormalized(establishmentId, normalized).orElse(null);
+        } catch (IllegalArgumentException ex) {
+            return null;
+        }
     }
 }

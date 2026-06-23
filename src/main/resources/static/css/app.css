@@ -1217,6 +1217,59 @@ tbody tr:hover {
   gap: 16px;
 }
 
+.manual-grid {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.85fr) minmax(320px, 1.15fr);
+  gap: 16px;
+}
+
+.form-row,
+.filter-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.filter-form {
+  grid-template-columns: repeat(4, minmax(145px, 1fr)) auto;
+  align-items: end;
+  margin-bottom: 16px;
+}
+
+.filter-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.client-summary {
+  margin-top: 16px;
+  display: grid;
+  gap: 5px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #fffdf9;
+}
+
+.client-summary span,
+.client-summary small {
+  color: var(--muted);
+}
+
+.check-line {
+  display: flex;
+  grid-template-columns: none;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.88rem;
+}
+
+.check-line input {
+  width: auto;
+}
+
 .settings-card {
   padding: 20px;
   border-radius: 20px;
@@ -1267,7 +1320,9 @@ tbody tr:hover {
   }
 
   .manage,
-  .settings-grid {
+  .settings-grid,
+  .manual-grid,
+  .filter-form {
     grid-template-columns: 1fr;
   }
 }
