@@ -1,0 +1,12 @@
+<!DOCTYPE html><html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Profissional · AgendaFácil Pro</title><link rel="stylesheet" th:href="@{/css/app.css}"></head>
+<body class="public"><main class="shell">
+  <a class="back" th:href="@{/agenda/{slug}(slug=${establishment.slug})}">← Voltar para serviços</a>
+  <section class="card"><span class="eyebrow" th:text="${service.name}">Serviço</span><h1>Com quem você quer marcar?</h1><p class="muted">Escolha um profissional para ver os horários disponíveis.</p>
+    <div class="grid">
+      <a class="choice" th:each="professional : ${professionals}" th:href="@{/agenda/{slug}/servicos/{serviceId}/profissionais/{professionalId}/horarios(slug=${establishment.slug},serviceId=${service.id},professionalId=${professional.id})}">
+        <strong th:text="${professional.name}">Profissional</strong><span th:text="${professional.bio}">Atendimento cuidadoso.</span><small>Ver horários</small>
+      </a>
+    </div>
+  </section>
+</main></body></html>

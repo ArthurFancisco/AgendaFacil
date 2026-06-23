@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Painel Administrativo · AgendaFácil Pro</title>
+  <link rel="stylesheet" th:href="@{/css/app.css}">
+  <script defer th:src="@{/js/app.js}"></script>
+</head>
+
+<body class="admin-page">
+  <aside class="admin-sidebar">
+    <div class="brand-box">
+      <div class="brand-icon">A</div>
+      <div>
+        <strong>AgendaFácil</strong>
+        <span>Painel do estabelecimento</span>
+      </div>
+    </div>
+
+    <nav class="side-nav">
+      <a href="#resumo">Resumo</a>
+      <a href="#pendentes">Pendentes</a>
+      <a href="#semana">Semana</a>
+      <a href="#hoje">Agenda de hoje</a>
+      <a href="#historico">Histórico</a>
+      <a href="#configuracoes">Configurações</a>
+    </nav>
+
+    <div class="side-footer">
+      <a class="btn secondary full" th:href="@{/agenda/{slug}(slug=${establishment.slug})}">
+        Ver agenda pública
+      </a>
+
+      <form th:action="@{/logout}" method="post">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+        <button class="btn danger-outline full" type="submit">Sair</button>
+      </form>
+    </div>
+  </aside>
+
+  <main class="admin-main">
+    <header class="admin-header">
+      <div>
+        <span class="eyebrow">Painel administrativo</span>
+        <h1 th:text="${establishment.name}">Nome do estabelecimento</h1>
+        <p>Controle seus agendamentos, aprovações, faltas e horários bloqueados.</p>
+      </div>
+
+      <div class="header-actions">
+        <a class="btn secondary" th:href="@{/agenda/{slug}(slug=${establishment.slug})}">
+          Ir para a agenda
+        </a>
+      </div>
+    </header>
+
+    <div class="alert success" th:if="${success}" th:text="${success}">
+      Alteração realizada com sucesso.
+    </div>
+
+    <section id="resumo" class="metric-grid">
+      <article class="metric-card" th:each="m : ${dashboard.metrics}">
+        <span th:text="${m.label}">Métrica</span>
+        <strong th:text="${m.value}">0</strong>
+        <small th:text="${m.hint}">Descrição da métrica</small>
+      </article>
+    </section>
+
+    <section id="pendentes" class="admin-card">
+      <div class="section-title">
+        <div>
+          <span class="eyebrow">Aprovação</span>
+          <h2>Reservas pendentes</h2>
+        </div>
+        <p>Reservas pendentes seguram o horário temporariamente. Ao recusar, o horário volta a ficar disponível.</p>
+      </div>
+
+      <div class="table-wrap" th:if="${not #lists.isEmpty(dashboard.pending)}">
+        <table class="admin-table">
+          <thead>
+          <tr>
+            <th>Data</th>
+            <th>Horário</th>
+            <th>Cliente</th>
+            <th>WhatsApp</th>
+            <th>Faltas</th>
+            <th>Serviço</th>
+            <th>Profissional</th>
+            <th>Status</th>
+            <th>Ações</th>
+          </tr>
+          </thead>
+
+          <tbody>
+          <tr th:each="appt : ${dashboard.pending}" th:classappend="${@view.rowClass(appt.status)}">
+            <td th:text="${#temporals.format(appt.startAt, 'dd/MM/yyyy')}">22/06/2026</td>
+
+            <td>
+              <strong th:text="${#temporals.format(appt.startAt, 'HH:mm')}">09:00</strong>
+              <span>às</span>
+              <strong th:text="${#temporals.format(appt.endAt, 'HH:mm')}">10:00</strong>
+            </td>
+
+            <td>
+              <strong th:text="${appt.customer.name}">Cliente</strong>
+              <small class="warning-text" th:if="${appt.customer.noShowCount >= 2}">
+                Cliente com histórico de faltas
+              </small>
+            </td>
+
+            <td th:text="${@view.phone(appt.customer.phoneNormalized)}">(17) 99999-9999</td>
+            <td th:text="${appt.customer.noShowCount}">0</td>
+            <td th:text="${appt.serviceItem.name}">Serviço</td>
+            <td th:text="${appt.professional.name}">Profissional</td>
+
+            <td>
+              <span th:class="${@view.badgeClass(appt.status)}" th:text="${@view.statusLabel(appt.status)}">
+                Pendente
+              </span>
+            </td>
+
+            <td>
+              <div class="table-actions">
+                <form th:action="@{/panel/appointments/{id}/approve(id=${appt.id})}" method="post">
+                  <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                  <button class="btn small primary" type="submit">Aprovar</button>
+                </form>
+
+                <form th:action="@{/panel/appointments/{id}/reject(id=${appt.id})}" method="post">
+                  <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                  <button class="btn small danger" type="submit">Recusar</button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="empty-state" th:if="${#lists.isEmpty(dashboard.pending)}">
+        Nenhuma reserva aguardando aprovação no momento.
+      </div>
+    </section>
+
+    <section id="semana" class="admin-card">
+      <div class="section-title">
+        <div>
+          <span class="eyebrow">Agenda visual</span>
+          <h2>Próximos 7 dias</h2>
+        </div>
+        <p>Aqui aparecem somente horários confirmados e pendentes.</p>
+      </div>
+
+      <div class="status-legend">
+        <span class="badge confirmed">Confirmado</span>
+        <span class="badge pending">Pendente</span>
+        <span class="badge completed">Concluído</span>
+        <span class="badge noshow">Faltou</span>
+        <span class="badge cancelled">Cancelado</span>
+        <span class="badge expired">Expirado</span>
+      </div>
+
+      <div class="week-board">
+        <article class="day-column" th:each="day : ${dashboard.week}">
+          <header>
+            <div>
+              <strong th:text="${day.label}">Seg</strong>
+              <span th:text="${#temporals.format(day.date, 'dd/MM')}">22/06</span>
+            </div>
+            <small>
+              <span th:text="${#lists.size(day.appointments)}">0</span>
+              ativos
+            </small>
+          </header>
+
+          <div class="day-appointments">
+            <div class="week-appointment" th:each="appt : ${day.appointments}">
+              <div class="week-time">
+                <strong th:text="${#temporals.format(appt.startAt, 'HH:mm')}">09:00</strong>
+                <span>-</span>
+                <strong th:text="${#temporals.format(appt.endAt, 'HH:mm')}">10:00</strong>
+              </div>
+
+              <span th:text="${appt.serviceItem.name}">Serviço</span>
+              <small th:text="${appt.professional.name}">Profissional</small>
+
+              <em th:class="${@view.badgeClass(appt.status)}" th:text="${@view.statusLabel(appt.status)}">
+                Status
+              </em>
+            </div>
+
+            <div class="empty-state compact" th:if="${#lists.isEmpty(day.appointments)}">
+              Sem horários ativos
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section id="hoje" class="admin-card">
+      <div class="section-title">
+        <div>
+          <span class="eyebrow">Operação do dia</span>
+          <h2>Agenda de hoje</h2>
+        </div>
+        <p>Todos os agendamentos do dia aparecem aqui, independente do status.</p>
+      </div>
+
+      <div class="table-wrap" th:if="${not #lists.isEmpty(dashboard.today)}">
+        <table class="admin-table">
+          <thead>
+          <tr>
+            <th>Horário</th>
+            <th>Cliente</th>
+            <th>WhatsApp</th>
+            <th>Serviço</th>
+            <th>Profissional</th>
+            <th>Status</th>
+            <th>Ações</th>
+          </tr>
+          </thead>
+
+          <tbody>
+          <tr th:each="appt : ${dashboard.today}" th:classappend="${@view.rowClass(appt.status)}">
+            <td>
+              <strong th:text="${#temporals.format(appt.startAt, 'HH:mm')}">09:00</strong>
+              <span>às</span>
+              <strong th:text="${#temporals.format(appt.endAt, 'HH:mm')}">10:00</strong>
+            </td>
+
+            <td th:text="${appt.customer.name}">Cliente</td>
+            <td th:text="${@view.phone(appt.customer.phoneNormalized)}">(17) 99999-9999</td>
+            <td th:text="${appt.serviceItem.name}">Serviço</td>
+            <td th:text="${appt.professional.name}">Profissional</td>
+
+            <td>
+              <span th:class="${@view.badgeClass(appt.status)}" th:text="${@view.statusLabel(appt.status)}">
+                Status
+              </span>
+            </td>
+
+            <td>
+              <div class="table-actions">
+                <form th:if="${@view.canApprove(appt.status)}" th:action="@{/panel/appointments/{id}/approve(id=${appt.id})}" method="post">
+                  <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                  <button class="btn small primary" type="submit">Aprovar</button>
+                </form>
+
+                <form th:if="${@view.canReject(appt.status)}" th:action="@{/panel/appointments/{id}/reject(id=${appt.id})}" method="post">
+                  <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                  <button class="btn small danger" type="submit">Recusar</button>
+                </form>
+
+                <form th:if="${@view.canComplete(appt.status)}" th:action="@{/panel/appointments/{id}/complete(id=${appt.id})}" method="post">
+                  <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                  <button class="btn small success-btn" type="submit">Concluir</button>
+                </form>
+
+                <form th:if="${@view.canNoShow(appt.status)}" th:action="@{/panel/appointments/{id}/no-show(id=${appt.id})}" method="post">
+                  <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                  <button class="btn small warning-btn" type="submit">Faltou</button>
+                </form>
+
+                <form th:if="${@view.canCancel(appt.status)}" th:action="@{/panel/appointments/{id}/cancel(id=${appt.id})}" method="post">
+                  <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                  <input type="hidden" name="reason" value="Cancelado pelo estabelecimento">
+                  <button class="btn small secondary" type="submit">Cancelar</button>
+                </form>
+
+                <span class="muted-text"
+                      th:if="${not @view.canApprove(appt.status) and not @view.canReject(appt.status) and not @view.canComplete(appt.status) and not @view.canNoShow(appt.status) and not @view.canCancel(appt.status)}">
+                  Sem ação pendente
+                </span>
+              </div>
+            </td>
+          </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="empty-state" th:if="${#lists.isEmpty(dashboard.today)}">
+        Nenhum agendamento para hoje.
+      </div>
+    </section>
+
+    <section id="historico" class="admin-card">
+      <div class="section-title">
+        <div>
+          <span class="eyebrow">Histórico</span>
+          <h2>Registros recentes</h2>
+        </div>
+        <p>Últimos agendamentos concluídos, cancelados, expirados ou marcados como falta.</p>
+      </div>
+
+      <div class="table-wrap" th:if="${not #lists.isEmpty(dashboard.history)}">
+        <table class="admin-table">
+          <thead>
+          <tr>
+            <th>Data</th>
+            <th>Horário</th>
+            <th>Cliente</th>
+            <th>WhatsApp</th>
+            <th>Serviço</th>
+            <th>Profissional</th>
+            <th>Status</th>
+            <th>Motivo</th>
+          </tr>
+          </thead>
+
+          <tbody>
+          <tr th:each="appt : ${dashboard.history}" th:classappend="${@view.rowClass(appt.status)}">
+            <td th:text="${#temporals.format(appt.startAt, 'dd/MM/yyyy')}">22/06/2026</td>
+
+            <td>
+              <strong th:text="${#temporals.format(appt.startAt, 'HH:mm')}">09:00</strong>
+              <span>às</span>
+              <strong th:text="${#temporals.format(appt.endAt, 'HH:mm')}">10:00</strong>
+            </td>
+
+            <td th:text="${appt.customer.name}">Cliente</td>
+            <td th:text="${@view.phone(appt.customer.phoneNormalized)}">(17) 99999-9999</td>
+            <td th:text="${appt.serviceItem.name}">Serviço</td>
+            <td th:text="${appt.professional.name}">Profissional</td>
+
+            <td>
+              <span th:class="${@view.badgeClass(appt.status)}" th:text="${@view.statusLabel(appt.status)}">
+                Status
+              </span>
+            </td>
+
+            <td th:text="${appt.cancellationReason != null ? appt.cancellationReason : '-'}">-</td>
+          </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="empty-state" th:if="${#lists.isEmpty(dashboard.history)}">
+        Nenhum registro recente no histórico.
+      </div>
+    </section>
+
+    <section id="configuracoes" class="admin-card">
+      <div class="section-title">
+        <div>
+          <span class="eyebrow">Configurações</span>
+          <h2>Serviços, profissionais e bloqueios</h2>
+        </div>
+        <p>Cadastre serviços, profissionais e horários em que a agenda não deve aceitar reservas.</p>
+      </div>
+
+      <div class="settings-grid">
+        <article class="settings-card">
+          <h3>Novo serviço</h3>
+
+          <form class="admin-form" th:action="@{/panel/services}" method="post">
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+
+            <label>
+              Nome do serviço
+              <input name="name" placeholder="Ex: Corte feminino" required>
+            </label>
+
+            <label>
+              Duração em minutos
+              <input name="durationMinutes" type="number" min="15" step="15" placeholder="60" required>
+            </label>
+
+            <label>
+              Preço
+              <input name="price" type="number" min="0" step="0.01" placeholder="80.00">
+            </label>
+
+            <label>
+              Descrição
+              <textarea name="description" placeholder="Descrição curta para o cliente"></textarea>
+            </label>
+
+            <button class="btn primary full" type="submit">Salvar serviço</button>
+          </form>
+
+          <div class="mini-list">
+            <div th:each="s : ${services}">
+              <div>
+                <strong th:text="${s.name}">Serviço</strong>
+                <small th:text="${s.active ? 'Ativo' : 'Pausado'}">Ativo</small>
+              </div>
+
+              <form th:action="@{/panel/services/{id}/toggle(id=${s.id})}" method="post">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                <button class="text-button" type="submit" th:text="${s.active ? 'Pausar' : 'Reativar'}">
+                  Pausar
+                </button>
+              </form>
+            </div>
+          </div>
+        </article>
+
+        <article class="settings-card">
+          <h3>Novo profissional</h3>
+
+          <form class="admin-form" th:action="@{/panel/professionals}" method="post">
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+
+            <label>
+              Nome do profissional
+              <input name="name" placeholder="Ex: Mariana Souza" required>
+            </label>
+
+            <label>
+              WhatsApp
+              <input name="whatsapp" placeholder="17999999999">
+            </label>
+
+            <label>
+              Apresentação
+              <textarea name="bio" placeholder="Uma apresentação curta"></textarea>
+            </label>
+
+            <button class="btn primary full" type="submit">Salvar profissional</button>
+          </form>
+
+          <div class="mini-list">
+            <div th:each="p : ${professionals}">
+              <div>
+                <strong th:text="${p.name}">Profissional</strong>
+                <small th:text="${p.active ? 'Ativo' : 'Pausado'}">Ativo</small>
+              </div>
+
+              <form th:action="@{/panel/professionals/{id}/toggle(id=${p.id})}" method="post">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                <button class="text-button" type="submit" th:text="${p.active ? 'Pausar' : 'Reativar'}">
+                  Pausar
+                </button>
+              </form>
+            </div>
+          </div>
+        </article>
+
+        <article class="settings-card">
+          <h3>Bloquear horário</h3>
+
+          <form class="admin-form" th:action="@{/panel/time-blocks}" method="post">
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+
+            <label>
+              Título
+              <input name="title" placeholder="Ex: Almoço, reunião, manutenção" required>
+            </label>
+
+            <label>
+              Profissional
+              <select name="professionalId">
+                <option value="">Todos os profissionais</option>
+                <option th:each="p : ${professionals}" th:value="${p.id}" th:text="${p.name}">
+                  Profissional
+                </option>
+              </select>
+            </label>
+
+            <label>
+              Início
+              <input name="startAt" type="datetime-local" required>
+            </label>
+
+            <label>
+              Fim
+              <input name="endAt" type="datetime-local" required>
+            </label>
+
+            <label>
+              Motivo
+              <input name="reason" placeholder="Motivo opcional">
+            </label>
+
+            <button class="btn primary full" type="submit">Criar bloqueio</button>
+          </form>
+
+          <div class="mini-list">
+            <div th:each="b : ${timeBlocks}">
+              <div>
+                <strong th:text="${b.title}">Bloqueio</strong>
+                <small>
+                  <span th:text="${#temporals.format(b.startAt, 'dd/MM HH:mm')}">22/06 12:00</span>
+                  <span> · </span>
+                  <span th:text="${b.active ? 'Ativo' : 'Pausado'}">Ativo</span>
+                </small>
+              </div>
+
+              <form th:action="@{/panel/time-blocks/{id}/toggle(id=${b.id})}" method="post">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                <button class="text-button" type="submit" th:text="${b.active ? 'Pausar' : 'Reativar'}">
+                  Pausar
+                </button>
+              </form>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

@@ -1,0 +1,72 @@
+package br.com.agendafacilpro.service;
+
+import java.time.LocalDateTime;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import br.com.agendafacilpro.domain.BookingAttempt;
+import br.com.agendafacilpro.domain.Establishment;
+import br.com.agendafacilpro.repo.BookingAttemptRepo;
+
+@Service
+public class BookingGuardService {
+
+    private static final Logger log = LoggerFactory.getLogger(BookingGuardService.class);
+    private final BookingAttemptRepo attempts;
+
+    public BookingGuardService(BookingAttemptRepo attempts) {
+        this.attempts = attempts;
+    }
+
+    public String normalizePhone(String phone) {
+        String d = phone == null ? "" : phone.replaceAll("\\D", "");
+        return d.startsWith("55") && d.length() == 13 ? d.substring(2) : d;
+    }
+
+    @Transactional
+    public Decision check(Establishment est, String phone, String ip, String honeypot) {
+        String normalized = normalizePhone(phone);
+        if (honeypot != null && !honeypot.isBlank()) {
+            return block(est, normalized, ip, "Honeypot preenchido", "Não conseguimos confirmar essa solicitação. Tente novamente em alguns minutos.");
+        }
+        if (normalized.length() < 10 || normalized.length() > 11) {
+            return block(est, normalized, ip, "Telefone inválido", "Confira o número do WhatsApp e tente de novo.");
+        }
+        LocalDateTime since = LocalDateTime.now().minusMinutes(30);
+        if (attempts.countByEstablishmentIdAndPhoneNormalizedAndCreatedAtAfter(est.getId(), normalized, since) >= 3) {
+            return block(est, normalized, ip, "Limite por telefone", "Recebemos muitas tentativas para esse número. Aguarde um pouco antes de tentar novamente.");
+        }
+        if (attempts.countByEstablishmentIdAndIpAddressAndCreatedAtAfter(est.getId(), safe(ip), since) >= 10) {
+            return block(est, normalized, ip, "Limite por IP", "Recebemos muitas tentativas deste acesso. Tente novamente mais tarde.");
+        }
+        save(est, normalized, ip, false, "Aceita");
+        return new Decision(true, "ok", normalized);
+    }
+
+    private Decision block(Establishment e, String phone, String ip, String reason, String message) {
+        save(e, phone, ip, true, reason);
+        log.warn("Tentativa suspeita: est={}, motivo={}", e.getId(), reason);
+        return new Decision(false, message, phone);
+    }
+
+    private void save(Establishment e, String phone, String ip, boolean suspicious, String reason) {
+        BookingAttempt a = new BookingAttempt();
+        a.setEstablishment(e);
+        a.setPhoneNormalized(phone);
+        a.setIpAddress(safe(ip));
+        a.setSuspicious(suspicious);
+        a.setReason(reason);
+        attempts.save(a);
+    }
+
+    private String safe(String ip) {
+        return ip == null || ip.isBlank() ? "unknown" : ip;
+    }
+
+    public record Decision(boolean allowed, String message, String normalizedPhone) {
+
+    }
+}

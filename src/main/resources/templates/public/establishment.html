@@ -1,0 +1,13 @@
+<!DOCTYPE html><html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title th:text="${establishment.name} + ' · AgendaFácil Pro'">AgendaFácil</title><link rel="stylesheet" th:href="@{/css/app.css}"></head>
+<body class="public"><main class="shell">
+  <section class="hero"><span class="eyebrow">Agendamento online</span><h1 th:text="${establishment.name}">Bella Estética Studio</h1><p th:text="${establishment.description}">Escolha um serviço e veja os horários disponíveis.</p><b th:text="${establishment.city}">Fernandópolis-SP</b></section>
+  <section class="card"><h2>O que você quer agendar?</h2><p class="muted">Escolha o serviço. Depois você seleciona a pessoa, o dia e o horário.</p>
+    <div class="grid">
+      <a class="choice" th:each="service : ${services}" th:href="@{/agenda/{slug}/servicos/{serviceId}/profissionais(slug=${establishment.slug},serviceId=${service.id})}">
+        <strong th:text="${service.name}">Serviço</strong><span th:text="${service.description}">Descrição</span><small><span th:text="${service.durationMinutes}">60</span> min</small>
+      </a>
+    </div>
+    <div class="empty" th:if="${#lists.isEmpty(services)}">Este estabelecimento ainda não liberou serviços para agendamento online.</div>
+  </section>
+</main></body></html>

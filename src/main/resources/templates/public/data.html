@@ -1,0 +1,18 @@
+<!DOCTYPE html><html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Confirmar · AgendaFácil Pro</title><link rel="stylesheet" th:href="@{/css/app.css}"></head>
+<body class="public"><main class="shell narrow">
+  <a class="back" th:href="@{/agenda/{slug}/servicos/{serviceId}/profissionais/{professionalId}/horarios(slug=${establishment.slug},serviceId=${service.id},professionalId=${professional.id},date=${selectedDate})}">← Trocar horário</a>
+  <section class="card"><h1>Confirme sua reserva</h1><p class="muted">Antes de enviar, confira se está tudo certo.</p>
+    <div class="summary"><span th:text="${service.name}">Serviço</span><strong th:text="${professional.name}">Profissional</strong><p><span th:text="${#temporals.format(selectedDate,'dd/MM/yyyy')}">22/06/2026</span> às <span th:text="${#temporals.format(selectedTime,'HH:mm')}">09:00</span></p></div>
+    <form th:action="@{/agenda/{slug}/confirmar(slug=${establishment.slug})}" method="post" class="form">
+      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+      <input type="hidden" name="serviceId" th:value="${service.id}"><input type="hidden" name="professionalId" th:value="${professional.id}">
+      <input type="hidden" name="date" th:value="${selectedDate}"><input type="hidden" name="time" th:value="${selectedTime}">
+      <label>Seu nome<input name="customerName" placeholder="Ex: Ana Clara" minlength="2" maxlength="120" required></label>
+      <label>WhatsApp<input name="customerPhone" placeholder="Ex: (17) 99999-9999" minlength="10" maxlength="20" required></label>
+      <label class="hp">Site<input name="website" tabindex="-1" autocomplete="off"></label>
+      <div class="alert info">O estabelecimento pode aprovar a reserva antes de confirmar o atendimento. Você não precisa criar conta.</div>
+      <button class="btn primary full" type="submit">Enviar solicitação</button>
+    </form>
+  </section>
+</main></body></html>
