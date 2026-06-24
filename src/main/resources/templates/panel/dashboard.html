@@ -100,7 +100,7 @@
           </div>
 
           <div class="empty-state compact" th:if="${customerLookup == null and customerLookupPhone != null and !#strings.isEmpty(customerLookupPhone)}">
-            Cliente ainda nao cadastrado neste estabelecimento. Preencha o nome para criar rapido.
+            Cliente ainda não cadastrado neste estabelecimento. Preencha o nome para criar rápido.
           </div>
         </article>
 
@@ -144,14 +144,14 @@
               </label>
 
               <label>
-                Horario
+                Horário
                 <input name="time" type="time" step="900" required>
               </label>
             </div>
 
             <label>
-              Observacao interna
-              <textarea name="internalNote" maxlength="500" placeholder="Observacao opcional para a equipe"></textarea>
+              Observação interna
+              <textarea name="internalNote" maxlength="500" placeholder="Observação opcional para a equipe"></textarea>
             </label>
 
             <label class="check-line">
@@ -189,7 +189,7 @@
         </label>
 
         <label>
-          Ate
+          Até
           <input name="endDate" type="date" th:value="${filter.endDate}">
         </label>
 
@@ -216,7 +216,7 @@
         <div class="filter-actions">
           <button class="btn primary" type="submit">Filtrar</button>
           <a class="btn secondary" th:href="@{/panel(startDate=${todayDate},endDate=${todayDate})}">Hoje</a>
-          <a class="btn secondary" th:href="@{/panel(startDate=${todayDate},endDate=${next7Date})}">Proximos 7 dias</a>
+          <a class="btn secondary" th:href="@{/panel(startDate=${todayDate},endDate=${next7Date})}">Próximos 7 dias</a>
         </div>
       </form>
 
@@ -225,12 +225,12 @@
           <thead>
           <tr>
             <th>Data</th>
-            <th>Horario</th>
+            <th>Horário</th>
             <th>Cliente</th>
             <th>Serviço</th>
             <th>Profissional</th>
             <th>Status</th>
-            <th>Acoes</th>
+            <th>Ações</th>
           </tr>
           </thead>
 
@@ -634,7 +634,7 @@
             </label>
           </div>
 
-          <button class="btn primary" type="submit">Salvar configuracoes</button>
+          <button class="btn primary" type="submit">Salvar configurações</button>
         </form>
       </article>
 

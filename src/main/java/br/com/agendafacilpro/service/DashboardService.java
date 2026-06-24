@@ -61,9 +61,9 @@ public class DashboardService {
         List<Metric> metrics = List.of(
                 new Metric("Agendamentos hoje", appointments.countByEstablishmentIdAndStartAtBetween(est, start, end), "Tudo que entrou para hoje"),
                 new Metric("Pendentes", appointments.countByEstablishmentIdAndStatusAndStartAtBetween(est, AppointmentStatus.PENDING_APPROVAL, LocalDateTime.now().minusYears(3), end7), "Esperando aprovação"),
-                new Metric("Concluidos hoje", appointments.countByEstablishmentIdAndStatusAndStartAtBetween(est, AppointmentStatus.COMPLETED, start, end), "Atendimentos finalizados"),
-                new Metric("Faltas hoje", appointments.countByEstablishmentIdAndStatusAndStartAtBetween(est, AppointmentStatus.NO_SHOW, start, end), "Clientes que nao vieram"),
-                new Metric("Proximos 7 dias", appointments.countByEstablishmentIdAndStatusInAndStartAtBetween(est, List.of(AppointmentStatus.CONFIRMED, AppointmentStatus.PENDING_APPROVAL), start, end7), "Horarios ativos")
+                new Metric("Concluídos hoje", appointments.countByEstablishmentIdAndStatusAndStartAtBetween(est, AppointmentStatus.COMPLETED, start, end), "Atendimentos finalizados"),
+                new Metric("Faltas hoje", appointments.countByEstablishmentIdAndStatusAndStartAtBetween(est, AppointmentStatus.NO_SHOW, start, end), "Clientes que não vieram"),
+                new Metric("Próximos 7 dias", appointments.countByEstablishmentIdAndStatusInAndStartAtBetween(est, List.of(AppointmentStatus.CONFIRMED, AppointmentStatus.PENDING_APPROVAL), start, end7), "Horários ativos")
         );
         List<Appointment> agenda = appointments.findAgenda(
                 est,

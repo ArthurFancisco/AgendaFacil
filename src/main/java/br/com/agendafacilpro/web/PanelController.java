@@ -161,73 +161,113 @@ public class PanelController {
 
     @PostMapping("/panel/services")
     String service(@RequestParam String name, @RequestParam int durationMinutes, @RequestParam(required = false) BigDecimal price, @RequestParam(required = false) String description, RedirectAttributes r) {
-        AppUser u = current.user();
-        ServiceItem s = new ServiceItem();
-        s.setEstablishment(u.getEstablishment());
-        s.setName(name.trim());
-        s.setDurationMinutes(Math.max(15, durationMinutes));
-        s.setPrice(price);
-        s.setDescription(description);
-        services.save(s);
-        r.addFlashAttribute("success", "Serviço cadastrado.");
-        return "redirect:/panel#configuracoes";
+        try {
+            if (name == null || name.isBlank()) {
+                throw new IllegalArgumentException("Informe o nome do serviço.");
+            }
+            AppUser u = current.user();
+            ServiceItem s = new ServiceItem();
+            s.setEstablishment(u.getEstablishment());
+            s.setName(name.trim());
+            s.setDurationMinutes(Math.max(15, durationMinutes));
+            s.setPrice(price);
+            s.setDescription(description);
+            services.save(s);
+            r.addFlashAttribute("success", "Serviço cadastrado.");
+            return "redirect:/panel#configuracoes";
+        } catch (IllegalArgumentException | IllegalStateException ex) {
+            return panelError(r, ex.getMessage(), "configuracoes");
+        }
     }
 
     @PostMapping("/panel/services/{id}/toggle")
     String toggleService(@PathVariable Long id, RedirectAttributes r) {
-        ServiceItem s = services.findByIdAndEstablishmentId(id, current.establishmentId()).orElseThrow();
-        s.setActive(!s.isActive());
-        services.save(s);
-        r.addFlashAttribute("success", s.isActive() ? "Serviço reativado." : "Serviço pausado.");
-        return "redirect:/panel#configuracoes";
+        try {
+            ServiceItem s = services.findByIdAndEstablishmentId(id, current.establishmentId())
+                    .orElseThrow(() -> new IllegalArgumentException("Serviço não encontrado para este estabelecimento."));
+            s.setActive(!s.isActive());
+            services.save(s);
+            r.addFlashAttribute("success", s.isActive() ? "Serviço reativado." : "Serviço pausado.");
+            return "redirect:/panel#configuracoes";
+        } catch (IllegalArgumentException | IllegalStateException ex) {
+            return panelError(r, ex.getMessage(), "configuracoes");
+        }
     }
 
     @PostMapping("/panel/professionals")
     String professional(@RequestParam String name, @RequestParam(required = false) String bio, @RequestParam(required = false) String whatsapp, RedirectAttributes r) {
-        AppUser u = current.user();
-        Professional p = new Professional();
-        p.setEstablishment(u.getEstablishment());
-        p.setName(name.trim());
-        p.setBio(bio);
-        p.setWhatsapp(whatsapp);
-        professionals.save(p);
-        r.addFlashAttribute("success", "Profissional cadastrado.");
-        return "redirect:/panel#configuracoes";
+        try {
+            if (name == null || name.isBlank()) {
+                throw new IllegalArgumentException("Informe o nome do profissional.");
+            }
+            AppUser u = current.user();
+            Professional p = new Professional();
+            p.setEstablishment(u.getEstablishment());
+            p.setName(name.trim());
+            p.setBio(bio);
+            p.setWhatsapp(whatsapp);
+            professionals.save(p);
+            r.addFlashAttribute("success", "Profissional cadastrado.");
+            return "redirect:/panel#configuracoes";
+        } catch (IllegalArgumentException | IllegalStateException ex) {
+            return panelError(r, ex.getMessage(), "configuracoes");
+        }
     }
 
     @PostMapping("/panel/professionals/{id}/toggle")
     String toggleProf(@PathVariable Long id, RedirectAttributes r) {
-        Professional p = professionals.findByIdAndEstablishmentId(id, current.establishmentId()).orElseThrow();
-        p.setActive(!p.isActive());
-        professionals.save(p);
-        r.addFlashAttribute("success", p.isActive() ? "Profissional reativado." : "Profissional pausado.");
-        return "redirect:/panel#configuracoes";
+        try {
+            Professional p = professionals.findByIdAndEstablishmentId(id, current.establishmentId())
+                    .orElseThrow(() -> new IllegalArgumentException("Profissional não encontrado para este estabelecimento."));
+            p.setActive(!p.isActive());
+            professionals.save(p);
+            r.addFlashAttribute("success", p.isActive() ? "Profissional reativado." : "Profissional pausado.");
+            return "redirect:/panel#configuracoes";
+        } catch (IllegalArgumentException | IllegalStateException ex) {
+            return panelError(r, ex.getMessage(), "configuracoes");
+        }
     }
 
     @PostMapping("/panel/time-blocks")
     String block(@RequestParam String title, @RequestParam(required = false) Long professionalId, @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startAt, @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endAt, @RequestParam(required = false) String reason, RedirectAttributes r) {
-        AppUser u = current.user();
-        TimeBlock b = new TimeBlock();
-        b.setEstablishment(u.getEstablishment());
-        b.setTitle(title.trim());
-        b.setStartAt(startAt);
-        b.setEndAt(endAt);
-        b.setReason(reason);
-        if (professionalId != null) {
-            b.setProfessional(professionals.findByIdAndEstablishmentId(professionalId, u.getEstablishment().getId()).orElseThrow());
+        try {
+            if (title == null || title.isBlank()) {
+                throw new IllegalArgumentException("Informe o título do bloqueio.");
+            }
+            if (endAt == null || startAt == null || !endAt.isAfter(startAt)) {
+                throw new IllegalArgumentException("Verifique os horários do bloqueio e tente novamente.");
+            }
+            AppUser u = current.user();
+            TimeBlock b = new TimeBlock();
+            b.setEstablishment(u.getEstablishment());
+            b.setTitle(title.trim());
+            b.setStartAt(startAt);
+            b.setEndAt(endAt);
+            b.setReason(reason);
+            if (professionalId != null) {
+                b.setProfessional(professionals.findByIdAndEstablishmentId(professionalId, u.getEstablishment().getId())
+                        .orElseThrow(() -> new IllegalArgumentException("Profissional não encontrado para este estabelecimento.")));
+            }
+            blocks.save(b);
+            r.addFlashAttribute("success", "Bloqueio de horário criado.");
+            return "redirect:/panel#configuracoes";
+        } catch (IllegalArgumentException | IllegalStateException ex) {
+            return panelError(r, ex.getMessage(), "configuracoes");
         }
-        blocks.save(b);
-        r.addFlashAttribute("success", "Bloqueio de horário criado.");
-        return "redirect:/panel#configuracoes";
     }
 
     @PostMapping("/panel/time-blocks/{id}/toggle")
     String toggleBlock(@PathVariable Long id, RedirectAttributes r) {
-        TimeBlock b = blocks.findByIdAndEstablishmentId(id, current.establishmentId()).orElseThrow();
-        b.setActive(!b.isActive());
-        blocks.save(b);
-        r.addFlashAttribute("success", b.isActive() ? "Bloqueio reativado." : "Bloqueio pausado.");
-        return "redirect:/panel#configuracoes";
+        try {
+            TimeBlock b = blocks.findByIdAndEstablishmentId(id, current.establishmentId())
+                    .orElseThrow(() -> new IllegalArgumentException("Bloqueio não encontrado para este estabelecimento."));
+            b.setActive(!b.isActive());
+            blocks.save(b);
+            r.addFlashAttribute("success", b.isActive() ? "Bloqueio reativado." : "Bloqueio pausado.");
+            return "redirect:/panel#configuracoes";
+        } catch (IllegalArgumentException | IllegalStateException ex) {
+            return panelError(r, ex.getMessage(), "configuracoes");
+        }
     }
 
     @PostMapping("/panel/settings")
