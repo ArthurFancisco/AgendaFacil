@@ -1,19 +1,40 @@
-<!DOCTYPE html><html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Horários · AgendaFácil Pro</title><link rel="stylesheet" th:href="@{/css/app.css}"></head>
-<body class="public"><main class="shell">
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Horários · AgendaFácil Pro</title>
+  <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body class="public">
+<main class="shell">
   <a class="back" th:href="@{/agenda/{slug}/servicos/{serviceId}/profissionais(slug=${establishment.slug},serviceId=${service.id})}">← Trocar profissional</a>
-  <section class="card"><span class="eyebrow" th:text="${service.name} + ' · ' + ${professional.name}">Serviço · Profissional</span><h1>Escolha o dia e o horário</h1>
+
+  <section class="card">
+    <span class="eyebrow" th:text="${service.name} + ' · ' + ${professional.name}">Serviço · Profissional</span>
+    <h1>Escolha o dia e o horário</h1>
     <p class="muted">Horários confirmados ou pendentes ficam indisponíveis. Se uma reserva for recusada pelo estabelecimento, o horário volta a ficar disponível automaticamente.</p>
+
     <form method="get" class="date-line" th:action="@{/agenda/{slug}/servicos/{serviceId}/profissionais/{professionalId}/horarios(slug=${establishment.slug},serviceId=${service.id},professionalId=${professional.id})}">
-      <label>Dia do atendimento<input type="date" name="date" th:value="${selectedDate}" required></label><button class="btn light" type="submit">Atualizar</button>
+      <label>Dia do atendimento<input type="date" name="date" th:value="${selectedDate}" required></label>
+      <button class="btn light" type="submit">Atualizar</button>
     </form>
+
     <div class="slots">
       <div th:each="slot : ${slots}">
         <a class="slot" th:if="${slot.available}" th:href="@{/agenda/{slug}/servicos/{serviceId}/profissionais/{professionalId}/dados(slug=${establishment.slug},serviceId=${service.id},professionalId=${professional.id},date=${selectedDate},time=${slot.start})}">
-          <b th:text="${#temporals.format(slot.start, 'HH:mm')}">08:00</b><span th:text="'até ' + ${#temporals.format(slot.end, 'HH:mm')}">até 09:00</span>
+          <b th:text="${#temporals.format(slot.start, 'HH:mm')}">08:00</b>
+          <span th:text="'até ' + ${#temporals.format(slot.end, 'HH:mm')}">até 09:00</span>
         </a>
-        <div class="slot off" th:unless="${slot.available}"><b th:text="${#temporals.format(slot.start, 'HH:mm')}">08:00</b><span th:text="${slot.reason}">Indisponível</span></div>
+
+        <div class="slot off" th:unless="${slot.available}">
+          <b th:text="${#temporals.format(slot.start, 'HH:mm')}">08:00</b>
+          <span th:text="${slot.reasonLabel}">Indisponível no momento</span>
+          <small th:if="${slot.suggestionText}" th:text="${slot.suggestionText}">Tente outro horário.</small>
+        </div>
       </div>
     </div>
   </section>
-</main></body></html>
+</main>
+</body>
+</html>

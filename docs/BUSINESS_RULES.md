@@ -132,3 +132,41 @@ Cada estabelecimento possui regras proprias em `establishment_settings`.
 | `showPricesOnPublicPage` | Mostra ou esconde precos na pagina publica. |
 
 As configuracoes nunca mudam a identidade do cliente: telefone normalizado + estabelecimento. Tambem nao mudam a regra de bloqueio de horario: apenas `CONFIRMED` e `PENDING_APPROVAL` ainda valido bloqueiam.
+
+## Profissional x serviço
+
+- Um profissional só aparece na etapa pública de escolha quando está ativo, pertence ao mesmo estabelecimento e está vinculado ao serviço escolhido.
+- O backend revalida o vínculo no agendamento público e no agendamento manual.
+- Manipular URL ou formulário com profissional que não realiza o serviço retorna mensagem humana: "Esse profissional não realiza o serviço escolhido."
+- A tabela `professional_services` impede vínculos duplicados e possui validação no banco para evitar vínculo entre estabelecimentos diferentes.
+
+## Slot válido no POST
+
+- A tela de horários é apenas uma conveniência; o POST nunca é confiado sozinho.
+- O horário enviado precisa estar na grade de 30 minutos, dentro do expediente configurado no MVP, entre 08:00 e 18:00.
+- O fim calculado usa `inicio + durationMinutes` do serviço.
+- O slot é recusado se estiver no passado, fora da grade, bloqueado por `TimeBlock`, em conflito com agendamento bloqueante ou se o serviço não couber antes do fim do expediente.
+- Mensagem padrão para horário manipulado ou indisponível: "Esse horário não está disponível para este serviço."
+
+## Conflito por duração real
+
+- O sistema sempre compara intervalos completos, não apenas a hora inicial.
+- Exemplo com atendimento existente das 11:00 às 12:00:
+  - serviço de 30 minutos às 10:30 é permitido, pois termina às 11:00;
+  - serviço de 60 minutos às 10:30 é bloqueado, pois terminaria às 11:30;
+  - serviço de 30 minutos às 12:00 é permitido;
+  - serviço das 11:30 às 12:30 é bloqueado.
+
+## Motivos e sugestões de indisponibilidade
+
+- Slots públicos usam motivos humanos: "Disponível", "Horário já passou", "Indisponível no momento", "Esse serviço não cabe nesse horário", "Horário bloqueado pelo estabelecimento" e "Fora do horário de atendimento".
+- A tela pública não deve exibir enum, payload técnico, entidade ou stacktrace.
+- Quando houver conflito ou quando o serviço não couber, o sistema sugere até 3 próximos horários com o mesmo profissional e até 2 outros profissionais qualificados no mesmo horário.
+
+## Exclusão x arquivamento
+
+- Serviço sem histórico de agendamentos pode ser excluído permanentemente.
+- Serviço com histórico não é excluído; é arquivado/inativado para preservar histórico.
+- Profissional sem histórico de agendamentos pode ser excluído permanentemente.
+- Profissional com histórico não é excluído; é arquivado/inativado para preservar histórico.
+- Itens inativos não aparecem no agendamento público nem em novos agendamentos, mas continuam visíveis no histórico antigo.

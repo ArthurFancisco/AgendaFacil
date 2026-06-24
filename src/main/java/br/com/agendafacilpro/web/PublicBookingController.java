@@ -36,7 +36,7 @@ public class PublicBookingController {
         Establishment e = catalog.establishment(slug);
         model.addAttribute("establishment", e);
         model.addAttribute("service", catalog.service(serviceId, e.getId()));
-        model.addAttribute("professionals", catalog.professionals(e.getId()));
+        model.addAttribute("professionals", catalog.professionalsForService(e.getId(), serviceId));
         return "public/professionals";
     }
 
@@ -46,7 +46,7 @@ public class PublicBookingController {
         LocalDate selected = date == null ? LocalDate.now() : date;
         model.addAttribute("establishment", e);
         model.addAttribute("service", catalog.service(serviceId, e.getId()));
-        model.addAttribute("professional", catalog.professional(professionalId, e.getId()));
+        model.addAttribute("professional", catalog.professionalForService(professionalId, serviceId, e.getId()));
         model.addAttribute("selectedDate", selected);
         model.addAttribute("slots", appointments.slots(e.getId(), serviceId, professionalId, selected));
         return "public/slots";
@@ -57,7 +57,7 @@ public class PublicBookingController {
         Establishment e = catalog.establishment(slug);
         model.addAttribute("establishment", e);
         model.addAttribute("service", catalog.service(serviceId, e.getId()));
-        model.addAttribute("professional", catalog.professional(professionalId, e.getId()));
+        model.addAttribute("professional", catalog.professionalForService(professionalId, serviceId, e.getId()));
         model.addAttribute("selectedDate", date);
         model.addAttribute("selectedTime", time);
         return "public/data";

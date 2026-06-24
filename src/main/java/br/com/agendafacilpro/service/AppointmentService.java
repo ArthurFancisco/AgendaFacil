@@ -35,6 +35,9 @@ import br.com.agendafacilpro.util.PhoneNormalizer;
 public class AppointmentService {
 
     private static final SecureRandom TOKEN_RANDOM = new SecureRandom();
+    private static final LocalTime OPEN_TIME = LocalTime.of(8, 0);
+    private static final LocalTime CLOSE_TIME = LocalTime.of(18, 0);
+    private static final int SLOT_STEP_MINUTES = 30;
 
     private final AppointmentRepo appointments;
     private final CustomerRepo customers;
@@ -58,11 +61,35 @@ public class AppointmentService {
         this.settingsService = settingsService;
     }
 
-    public record Slot(LocalTime start, LocalTime end, boolean available, String reason) {
+    public enum SlotReason {
+        AVAILABLE("Disponível"),
+        PAST("Horário já passou"),
+        CONFLICT("Indisponível no momento"),
+        DOES_NOT_FIT("Esse serviço não cabe nesse horário"),
+        BLOCKED("Horário bloqueado pelo estabelecimento"),
+        CLOSED("Fora do horário de atendimento"),
+        PROFESSIONAL_UNAVAILABLE("Profissional indisponível");
+
+        private final String label;
+
+        SlotReason(String label) {
+            this.label = label;
+        }
+
+        public String label() {
+            return label;
+        }
+    }
+
+    public record Slot(LocalTime start, LocalTime end, boolean available, SlotReason reasonCode, String reasonLabel, String suggestionText) {
 
     }
 
-    public record Summary(String customer, String establishment, String service, String professional, LocalDateTime start, LocalDateTime end, String status, String whatsappUrl) {
+    public record Summary(String customer, String establishment, String establishmentSlug, String service, String professional, LocalDateTime start, LocalDateTime end, String status, String whatsappUrl) {
+
+    }
+
+    private record BookingTarget(ServiceItem serviceItem, Professional professional) {
 
     }
 
@@ -75,13 +102,13 @@ public class AppointmentService {
         ServiceItem serviceItem = services.findByIdAndEstablishmentId(serviceId, est).orElseThrow();
         Professional professional = professionals.findByIdAndEstablishmentId(professionalId, est).orElseThrow();
         List<Slot> out = new ArrayList<>();
-        LocalTime t = LocalTime.of(8, 0);
-        while (!t.plusMinutes(serviceItem.getDurationMinutes()).isAfter(LocalTime.of(18, 0))) {
+        LocalTime t = OPEN_TIME;
+        while (t.isBefore(CLOSE_TIME)) {
             LocalDateTime start = LocalDateTime.of(date, t);
             LocalDateTime end = start.plusMinutes(serviceItem.getDurationMinutes());
-            String reason = reason(est, professional.getId(), start, end);
-            out.add(new Slot(t, end.toLocalTime(), reason == null, reason));
-            t = t.plusMinutes(30);
+            SlotReason reason = slotReason(est, professional, serviceItem, start, end);
+            out.add(new Slot(t, end.toLocalTime(), reason == SlotReason.AVAILABLE, reason, reason.label(), suggestionFor(est, serviceItem, professional, start, reason)));
+            t = t.plusMinutes(SLOT_STEP_MINUTES);
         }
         return out;
     }
@@ -100,18 +127,12 @@ public class AppointmentService {
         if (!decision.allowed()) {
             throw new IllegalArgumentException(decision.message());
         }
-        ServiceItem serviceItem = services.findByIdAndEstablishmentId(serviceId, est.getId())
-                .filter(ServiceItem::isActive)
-                .orElseThrow(() -> new IllegalArgumentException("Serviço indisponível."));
-        Professional professional = professionals.findByIdAndEstablishmentId(professionalId, est.getId())
-                .filter(Professional::isActive)
-                .orElseThrow(() -> new IllegalArgumentException("Profissional indisponível."));
+        BookingTarget target = bookingTarget(est.getId(), serviceId, professionalId);
+        ServiceItem serviceItem = target.serviceItem();
+        Professional professional = target.professional();
         LocalDateTime start = LocalDateTime.of(date, time);
         LocalDateTime end = start.plusMinutes(serviceItem.getDurationMinutes());
-        if (!start.isAfter(LocalDateTime.now().minusMinutes(1))) {
-            throw new IllegalArgumentException("Esse horário já passou. Escolha outro horário disponível.");
-        }
-        noConflict(est.getId(), professional.getId(), start, end, null);
+        validateSubmittedSlot(est.getId(), professional, serviceItem, start, end);
         if (appointments.countFutureByPhone(est.getId(), decision.normalizedPhone(), AppointmentRules.blockingStatuses(), LocalDateTime.now()) >= settings.getMaxFutureAppointmentsPerPhone()) {
             throw new IllegalArgumentException("Para marcar um novo horário, fale com o estabelecimento.");
         }
@@ -151,18 +172,12 @@ public class AppointmentService {
         }
         expire(est.getId());
         String normalizedPhone = PhoneNormalizer.normalize(request.customerPhone());
-        ServiceItem serviceItem = services.findByIdAndEstablishmentId(request.serviceId(), est.getId())
-                .filter(ServiceItem::isActive)
-                .orElseThrow(() -> new IllegalArgumentException("Serviço indisponível."));
-        Professional professional = professionals.findByIdAndEstablishmentId(request.professionalId(), est.getId())
-                .filter(Professional::isActive)
-                .orElseThrow(() -> new IllegalArgumentException("Profissional indisponível."));
+        BookingTarget target = bookingTarget(est.getId(), request.serviceId(), request.professionalId());
+        ServiceItem serviceItem = target.serviceItem();
+        Professional professional = target.professional();
         LocalDateTime start = LocalDateTime.of(request.date(), request.time());
         LocalDateTime end = start.plusMinutes(serviceItem.getDurationMinutes());
-        if (!start.isAfter(LocalDateTime.now().minusMinutes(1))) {
-            throw new IllegalArgumentException("Esse horário já passou. Escolha outro horário disponível.");
-        }
-        noConflict(est.getId(), professional.getId(), start, end, null);
+        validateSubmittedSlot(est.getId(), professional, serviceItem, start, end);
 
         Optional<Customer> existingCustomer = customers.findByEstablishmentIdAndPhoneNormalized(est.getId(), normalizedPhone);
         Customer customer = existingCustomer.orElseGet(Customer::new);
@@ -197,7 +212,17 @@ public class AppointmentService {
                 .orElseThrow(() -> new IllegalArgumentException("Agendamento não encontrado."));
         String text = "Olá! Fiz uma solicitação de agendamento para " + appointment.getServiceItem().getName() + " com " + appointment.getProfessional().getName() + ".";
         String url = "https://wa.me/" + est.getWhatsapp() + "?text=" + URLEncoder.encode(text, StandardCharsets.UTF_8);
-        return new Summary(appointment.getCustomer().getName(), est.getName(), appointment.getServiceItem().getName(), appointment.getProfessional().getName(), appointment.getStartAt(), appointment.getEndAt(), view.statusLabel(appointment.getStatus()), url);
+        return new Summary(appointment.getCustomer().getName(), est.getName(), est.getSlug(), appointment.getServiceItem().getName(), appointment.getProfessional().getName(), appointment.getStartAt(), appointment.getEndAt(), view.statusLabel(appointment.getStatus()), url);
+    }
+
+    @Transactional(readOnly = true)
+    public long countAppointmentsForService(Long establishmentId, Long serviceId) {
+        return appointments.countByEstablishmentIdAndServiceItemId(establishmentId, serviceId);
+    }
+
+    @Transactional(readOnly = true)
+    public long countAppointmentsForProfessional(Long establishmentId, Long professionalId) {
+        return appointments.countByEstablishmentIdAndProfessionalId(establishmentId, professionalId);
     }
 
     /**
@@ -324,17 +349,86 @@ public class AppointmentService {
                 .orElseThrow(() -> new IllegalArgumentException("Agendamento não encontrado para este estabelecimento."));
     }
 
-    private String reason(Long est, Long prof, LocalDateTime start, LocalDateTime end) {
+    private BookingTarget bookingTarget(Long est, Long serviceId, Long professionalId) {
+        ServiceItem serviceItem = services.findByIdAndEstablishmentId(serviceId, est)
+                .filter(ServiceItem::isActive)
+                .orElseThrow(() -> new IllegalArgumentException("Serviço indisponível."));
+        Professional professional = professionals.findByIdAndEstablishmentId(professionalId, est)
+                .filter(Professional::isActive)
+                .orElseThrow(() -> new IllegalArgumentException("Profissional indisponível."));
+        if (!professional.performs(serviceItem) && !professionals.existsActiveQualified(est, professionalId, serviceId)) {
+            throw new IllegalArgumentException("Esse profissional não realiza o serviço escolhido.");
+        }
+        return new BookingTarget(serviceItem, professional);
+    }
+
+    private void validateSubmittedSlot(Long est, Professional professional, ServiceItem serviceItem, LocalDateTime start, LocalDateTime end) {
+        SlotReason reason = slotReason(est, professional, serviceItem, start, end);
+        if (reason != SlotReason.AVAILABLE) {
+            throw new IllegalArgumentException("Esse horário não está disponível para este serviço.");
+        }
+    }
+
+    private SlotReason slotReason(Long est, Professional professional, ServiceItem serviceItem, LocalDateTime start, LocalDateTime end) {
+        if (!professional.isActive() || !professional.performs(serviceItem) && !professionals.existsActiveQualified(est, professional.getId(), serviceItem.getId())) {
+            return SlotReason.PROFESSIONAL_UNAVAILABLE;
+        }
+        if (!isSlotStart(start.toLocalTime()) || start.toLocalTime().isBefore(OPEN_TIME) || !start.toLocalTime().isBefore(CLOSE_TIME)) {
+            return SlotReason.CLOSED;
+        }
+        if (!end.toLocalDate().equals(start.toLocalDate()) || end.toLocalTime().isAfter(CLOSE_TIME)) {
+            return SlotReason.DOES_NOT_FIT;
+        }
         if (!start.isAfter(LocalDateTime.now().minusMinutes(1))) {
-            return "Horário já passou";
+            return SlotReason.PAST;
         }
-        if (blocks.existsOverlap(est, prof, start, end)) {
-            return "Bloqueado pelo estabelecimento";
+        if (blocks.existsOverlap(est, professional.getId(), start, end)) {
+            return SlotReason.BLOCKED;
         }
-        if (appointments.existsBlockingOverlap(est, prof, start, end, AppointmentRules.blockingStatuses(), null)) {
-            return "Já existe reserva nesse horário";
+        if (appointments.existsBlockingOverlap(est, professional.getId(), start, end, AppointmentRules.blockingStatuses(), null)) {
+            return SlotReason.CONFLICT;
         }
-        return null;
+        return SlotReason.AVAILABLE;
+    }
+
+    private boolean isSlotStart(LocalTime time) {
+        return time.getSecond() == 0
+                && time.getNano() == 0
+                && time.getMinute() % SLOT_STEP_MINUTES == 0;
+    }
+
+    private String suggestionFor(Long est, ServiceItem serviceItem, Professional professional, LocalDateTime start, SlotReason reason) {
+        if (reason != SlotReason.CONFLICT && reason != SlotReason.DOES_NOT_FIT) {
+            return null;
+        }
+        List<String> suggestions = new ArrayList<>();
+        List<String> nextTimes = new ArrayList<>();
+        LocalTime next = start.toLocalTime().plusMinutes(SLOT_STEP_MINUTES);
+        while (next.isBefore(CLOSE_TIME) && nextTimes.size() < 3) {
+            LocalDateTime candidateStart = LocalDateTime.of(start.toLocalDate(), next);
+            LocalDateTime candidateEnd = candidateStart.plusMinutes(serviceItem.getDurationMinutes());
+            if (slotReason(est, professional, serviceItem, candidateStart, candidateEnd) == SlotReason.AVAILABLE) {
+                nextTimes.add(next.toString());
+            }
+            next = next.plusMinutes(SLOT_STEP_MINUTES);
+        }
+        if (!nextTimes.isEmpty()) {
+            suggestions.add("Tente " + String.join(", ", nextTimes) + " com " + professional.getName() + ".");
+        }
+
+        List<String> otherProfessionals = professionals.findActiveQualified(est, serviceItem.getId()).stream()
+                .filter(candidate -> !candidate.getId().equals(professional.getId()))
+                .filter(candidate -> slotReason(est, candidate, serviceItem, start, start.plusMinutes(serviceItem.getDurationMinutes())) == SlotReason.AVAILABLE)
+                .limit(2)
+                .map(Professional::getName)
+                .toList();
+        if (!otherProfessionals.isEmpty()) {
+            suggestions.add("Também há outro profissional disponível nesse horário: " + String.join(", ", otherProfessionals) + ".");
+        }
+        if (suggestions.isEmpty()) {
+            return "Não encontramos outro horário próximo neste dia.";
+        }
+        return String.join(" ", suggestions);
     }
 
     private void noConflict(Long est, Long prof, LocalDateTime start, LocalDateTime end, Long ignore) {

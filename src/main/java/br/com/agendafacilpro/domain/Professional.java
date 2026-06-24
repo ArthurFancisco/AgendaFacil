@@ -6,8 +6,14 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "professionals")
@@ -29,6 +35,14 @@ public class Professional {
     private String whatsapp;
     private boolean active = true;
     private int sortOrder = 0;
+
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "professional_services",
+            joinColumns = @JoinColumn(name = "professional_id"),
+            inverseJoinColumns = @JoinColumn(name = "service_item_id")
+    )
+    private Set<ServiceItem> services = new LinkedHashSet<>();
 
     public Professional() {
     }
@@ -87,5 +101,20 @@ public class Professional {
 
     public void setSortOrder(int sortOrder) {
         this.sortOrder = sortOrder;
+    }
+
+    public Set<ServiceItem> getServices() {
+        return services;
+    }
+
+    public void setServices(Set<ServiceItem> services) {
+        this.services = services == null ? new LinkedHashSet<>() : services;
+    }
+
+    public boolean performs(ServiceItem serviceItem) {
+        if (serviceItem == null || serviceItem.getId() == null) {
+            return false;
+        }
+        return services.stream().anyMatch(service -> serviceItem.getId().equals(service.getId()));
     }
 }

@@ -65,6 +65,7 @@ class AppointmentServiceSettingsTest {
         establishment = establishment();
         serviceItem = serviceItem(establishment, 60);
         professional = professional(establishment);
+        professional.getServices().add(serviceItem);
         settingsService.settings = EstablishmentSettings.defaultsFor(establishment);
 
         when(appointments.findByEstablishmentIdAndStatusAndStartAtBefore(eq(1L), eq(AppointmentStatus.PENDING_APPROVAL), any(LocalDateTime.class))).thenReturn(List.of());

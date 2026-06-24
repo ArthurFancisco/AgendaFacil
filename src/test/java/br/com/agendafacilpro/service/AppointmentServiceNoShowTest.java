@@ -75,6 +75,7 @@ class AppointmentServiceNoShowTest {
         Establishment establishment = establishment();
         ServiceItem serviceItem = serviceItem(establishment);
         Professional professional = professional(establishment);
+        professional.getServices().add(serviceItem);
         Customer customer = customer(establishment, 2, false);
 
         when(appointments.findByEstablishmentIdAndStatusAndStartAtBefore(eq(1L), eq(AppointmentStatus.PENDING_APPROVAL), any(LocalDateTime.class)))

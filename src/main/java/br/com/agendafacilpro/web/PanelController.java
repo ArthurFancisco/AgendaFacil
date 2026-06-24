@@ -4,6 +4,9 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
 
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.stereotype.Controller;
@@ -162,18 +165,27 @@ public class PanelController {
     @PostMapping("/panel/services")
     String service(@RequestParam String name, @RequestParam int durationMinutes, @RequestParam(required = false) BigDecimal price, @RequestParam(required = false) String description, RedirectAttributes r) {
         try {
-            if (name == null || name.isBlank()) {
-                throw new IllegalArgumentException("Informe o nome do serviço.");
-            }
             AppUser u = current.user();
             ServiceItem s = new ServiceItem();
             s.setEstablishment(u.getEstablishment());
-            s.setName(name.trim());
-            s.setDurationMinutes(Math.max(15, durationMinutes));
-            s.setPrice(price);
-            s.setDescription(description);
+            applyServiceFields(s, name, durationMinutes, price, description);
             services.save(s);
             r.addFlashAttribute("success", "Serviço cadastrado.");
+            return "redirect:/panel#configuracoes";
+        } catch (IllegalArgumentException | IllegalStateException ex) {
+            return panelError(r, ex.getMessage(), "configuracoes");
+        }
+    }
+
+    @PostMapping("/panel/services/{id}")
+    String updateService(@PathVariable Long id, @RequestParam String name, @RequestParam int durationMinutes, @RequestParam(required = false) BigDecimal price, @RequestParam(required = false) String description, @RequestParam(defaultValue = "false") boolean active, RedirectAttributes r) {
+        try {
+            ServiceItem s = services.findByIdAndEstablishmentId(id, current.establishmentId())
+                    .orElseThrow(() -> new IllegalArgumentException("Serviço não encontrado para este estabelecimento."));
+            applyServiceFields(s, name, durationMinutes, price, description);
+            s.setActive(active);
+            services.save(s);
+            r.addFlashAttribute("success", "Serviço atualizado com sucesso.");
             return "redirect:/panel#configuracoes";
         } catch (IllegalArgumentException | IllegalStateException ex) {
             return panelError(r, ex.getMessage(), "configuracoes");
@@ -194,20 +206,50 @@ public class PanelController {
         }
     }
 
-    @PostMapping("/panel/professionals")
-    String professional(@RequestParam String name, @RequestParam(required = false) String bio, @RequestParam(required = false) String whatsapp, RedirectAttributes r) {
+    @PostMapping("/panel/services/{id}/delete")
+    String deleteService(@PathVariable Long id, RedirectAttributes r) {
         try {
-            if (name == null || name.isBlank()) {
-                throw new IllegalArgumentException("Informe o nome do profissional.");
+            Long est = current.establishmentId();
+            ServiceItem s = services.findByIdAndEstablishmentId(id, est)
+                    .orElseThrow(() -> new IllegalArgumentException("Serviço não encontrado para este estabelecimento."));
+            if (appointmentsCountByService(est, id) > 0) {
+                s.setActive(false);
+                services.save(s);
+                r.addFlashAttribute("error", "Este serviço já possui histórico e por isso não pode ser excluído permanentemente.");
+            } else {
+                services.delete(s);
+                r.addFlashAttribute("success", "Serviço excluído com sucesso.");
             }
+            return "redirect:/panel#configuracoes";
+        } catch (IllegalArgumentException | IllegalStateException ex) {
+            return panelError(r, ex.getMessage(), "configuracoes");
+        }
+    }
+
+    @PostMapping("/panel/professionals")
+    String professional(@RequestParam String name, @RequestParam(required = false) String bio, @RequestParam(required = false) String whatsapp, @RequestParam(required = false) List<Long> serviceIds, RedirectAttributes r) {
+        try {
             AppUser u = current.user();
             Professional p = new Professional();
             p.setEstablishment(u.getEstablishment());
-            p.setName(name.trim());
-            p.setBio(bio);
-            p.setWhatsapp(whatsapp);
+            applyProfessionalFields(p, name, bio, whatsapp, true, serviceIds, u.getEstablishment().getId());
             professionals.save(p);
             r.addFlashAttribute("success", "Profissional cadastrado.");
+            return "redirect:/panel#configuracoes";
+        } catch (IllegalArgumentException | IllegalStateException ex) {
+            return panelError(r, ex.getMessage(), "configuracoes");
+        }
+    }
+
+    @PostMapping("/panel/professionals/{id}")
+    String updateProfessional(@PathVariable Long id, @RequestParam String name, @RequestParam(required = false) String bio, @RequestParam(required = false) String whatsapp, @RequestParam(defaultValue = "false") boolean active, @RequestParam(required = false) List<Long> serviceIds, RedirectAttributes r) {
+        try {
+            Long est = current.establishmentId();
+            Professional p = professionals.findByIdAndEstablishmentId(id, est)
+                    .orElseThrow(() -> new IllegalArgumentException("Profissional não encontrado para este estabelecimento."));
+            applyProfessionalFields(p, name, bio, whatsapp, active, serviceIds, est);
+            professionals.save(p);
+            r.addFlashAttribute("success", "Profissional atualizado com sucesso.");
             return "redirect:/panel#configuracoes";
         } catch (IllegalArgumentException | IllegalStateException ex) {
             return panelError(r, ex.getMessage(), "configuracoes");
@@ -219,9 +261,32 @@ public class PanelController {
         try {
             Professional p = professionals.findByIdAndEstablishmentId(id, current.establishmentId())
                     .orElseThrow(() -> new IllegalArgumentException("Profissional não encontrado para este estabelecimento."));
+            if (!p.isActive() && p.getServices().isEmpty()) {
+                throw new IllegalArgumentException("Selecione pelo menos um serviço para este profissional.");
+            }
             p.setActive(!p.isActive());
             professionals.save(p);
             r.addFlashAttribute("success", p.isActive() ? "Profissional reativado." : "Profissional pausado.");
+            return "redirect:/panel#configuracoes";
+        } catch (IllegalArgumentException | IllegalStateException ex) {
+            return panelError(r, ex.getMessage(), "configuracoes");
+        }
+    }
+
+    @PostMapping("/panel/professionals/{id}/delete")
+    String deleteProfessional(@PathVariable Long id, RedirectAttributes r) {
+        try {
+            Long est = current.establishmentId();
+            Professional p = professionals.findByIdAndEstablishmentId(id, est)
+                    .orElseThrow(() -> new IllegalArgumentException("Profissional não encontrado para este estabelecimento."));
+            if (appointmentsCountByProfessional(est, id) > 0) {
+                p.setActive(false);
+                professionals.save(p);
+                r.addFlashAttribute("error", "Este profissional já possui histórico e por isso não pode ser excluído permanentemente.");
+            } else {
+                professionals.delete(p);
+                r.addFlashAttribute("success", "Profissional excluído com sucesso.");
+            }
             return "redirect:/panel#configuracoes";
         } catch (IllegalArgumentException | IllegalStateException ex) {
             return panelError(r, ex.getMessage(), "configuracoes");
@@ -317,5 +382,52 @@ public class PanelController {
     private String panelError(RedirectAttributes r, String message, String anchor) {
         r.addFlashAttribute("error", message == null || message.isBlank() ? "Não foi possível concluir essa ação." : message);
         return "redirect:/panel#" + anchor;
+    }
+
+    private void applyServiceFields(ServiceItem service, String name, int durationMinutes, BigDecimal price, String description) {
+        if (name == null || name.isBlank() || durationMinutes < 15 || durationMinutes % 15 != 0 || price != null && price.signum() < 0) {
+            throw new IllegalArgumentException("Verifique os dados do serviço.");
+        }
+        service.setName(name.trim());
+        service.setDurationMinutes(durationMinutes);
+        service.setPrice(price);
+        service.setDescription(description);
+    }
+
+    private void applyProfessionalFields(Professional professional, String name, String bio, String whatsapp, boolean active, List<Long> serviceIds, Long establishmentId) {
+        if (name == null || name.isBlank()) {
+            throw new IllegalArgumentException("Informe o nome do profissional.");
+        }
+        Set<ServiceItem> selectedServices = selectedServices(establishmentId, serviceIds);
+        if (active && selectedServices.isEmpty()) {
+            throw new IllegalArgumentException("Selecione pelo menos um serviço para este profissional.");
+        }
+        professional.setName(name.trim());
+        professional.setBio(bio);
+        professional.setWhatsapp(whatsapp);
+        professional.setActive(active);
+        professional.setServices(selectedServices);
+    }
+
+    private Set<ServiceItem> selectedServices(Long establishmentId, List<Long> serviceIds) {
+        Set<ServiceItem> selected = new LinkedHashSet<>();
+        if (serviceIds == null) {
+            return selected;
+        }
+        for (Long serviceId : serviceIds) {
+            ServiceItem service = services.findByIdAndEstablishmentId(serviceId, establishmentId)
+                    .filter(ServiceItem::isActive)
+                    .orElseThrow(() -> new IllegalArgumentException("Selecione apenas serviços ativos deste estabelecimento."));
+            selected.add(service);
+        }
+        return selected;
+    }
+
+    private long appointmentsCountByService(Long establishmentId, Long serviceId) {
+        return appointments.countAppointmentsForService(establishmentId, serviceId);
+    }
+
+    private long appointmentsCountByProfessional(Long establishmentId, Long professionalId) {
+        return appointments.countAppointmentsForProfessional(establishmentId, professionalId);
     }
 }

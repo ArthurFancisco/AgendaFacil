@@ -20,6 +20,13 @@ public final class AppointmentRules {
         return BLOCKING_STATUSES.contains(status);
     }
 
+    public static boolean blocksSchedule(AppointmentStatus status, LocalDateTime startAt, LocalDateTime createdAt, int pendingExpirationMinutes, LocalDateTime now) {
+        if (status == AppointmentStatus.PENDING_APPROVAL) {
+            return startAt.isAfter(now) && !createdAt.plusMinutes(pendingExpirationMinutes).isBefore(now);
+        }
+        return blocksSchedule(status);
+    }
+
     public static List<AppointmentStatus> blockingStatuses() {
         return BLOCKING_STATUSES;
     }

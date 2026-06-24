@@ -123,3 +123,13 @@ A página pública cria solicitações de agendamento e não exige login do clie
 - configurar serviços, profissionais e bloqueios.
 
 Ambos os lados usam as mesmas regras centrais de disponibilidade e conflito em `AppointmentService`.
+
+## Catálogo profissional
+
+Profissionais e serviços se relacionam por `professional_services`. O lado público consulta apenas profissionais ativos, do mesmo estabelecimento e vinculados ao serviço escolhido. O painel permite editar os vínculos de cada profissional.
+
+O banco possui proteção contra vínculo cruzado entre estabelecimentos, e o backend repete essa validação antes de criar agendamentos públicos ou manuais.
+
+## Disponibilidade real
+
+`AppointmentService` calcula slots com a duração real do serviço. O POST de confirmação também revalida a grade, expediente, bloqueios, conflitos e vínculo profissional-serviço. Assim, manipular URL ou formulário não permite reservar horário fora da grade ou com profissional não qualificado.

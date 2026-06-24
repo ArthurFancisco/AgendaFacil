@@ -1,3 +1,22 @@
-<!DOCTYPE html><html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ops · AgendaFácil Pro</title><link rel="stylesheet" th:href="@{/css/app.css}"></head>
-<body class="public"><main class="shell narrow"><section class="card center"><div class="mark">A</div><h1 th:text="${title ?: 'Não conseguimos abrir esta página'}">Não deu certo</h1><p class="muted" th:text="${message ?: 'Tente novamente. Se continuar acontecendo, veja o erro no terminal do Spring Boot.'}">Tente novamente.</p><p><a class="btn primary" href="javascript:history.back()">Voltar</a> <a class="btn light" th:href="@{/agenda/bella-estetica}">Ir para a agenda</a></p></section></main></body></html>
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Ops · AgendaFácil Pro</title>
+  <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body class="public">
+<main class="shell narrow">
+  <section class="card center">
+    <div class="mark">A</div>
+    <h1 th:text="${title ?: 'Não conseguimos abrir esta página'}">Não deu certo</h1>
+    <p class="muted" th:text="${message ?: 'Tente novamente. Se continuar acontecendo, veja o erro no terminal do Spring Boot.'}">Tente novamente.</p>
+    <p>
+      <a class="btn primary" href="javascript:history.back()">Voltar</a>
+      <a class="btn light" th:href="@{/agenda/agenda-demo}">Ir para a agenda</a>
+    </p>
+  </section>
+</main>
+</body>
+</html>

@@ -682,6 +682,12 @@ tbody tr:hover {
   font-size: 0.92rem;
 }
 
+.slot small {
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.25;
+}
+
 .slot.off {
   background: #eee8e1;
   opacity: 0.72;
@@ -1312,9 +1318,7 @@ tbody tr:hover {
 }
 
 .mini-list > div {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  display: grid;
   gap: 10px;
   padding-top: 10px;
   border-top: 1px solid #eee1d5;
@@ -1326,6 +1330,30 @@ tbody tr:hover {
 
 .mini-list small {
   color: var(--muted);
+}
+
+.compact-form {
+  gap: 9px;
+}
+
+.service-checks {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+
+.service-checks legend {
+  padding: 0 6px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.text-button.danger {
+  color: var(--danger-dark);
 }
 
 /* =========================

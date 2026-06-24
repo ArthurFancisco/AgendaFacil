@@ -670,16 +670,40 @@
 
           <div class="mini-list">
             <div th:each="s : ${services}">
-              <div>
-                <strong th:text="${s.name}">Serviço</strong>
-                <small th:text="${s.active ? 'Ativo' : 'Pausado'}">Ativo</small>
-              </div>
-
-              <form th:action="@{/panel/services/{id}/toggle(id=${s.id})}" method="post">
+              <form class="admin-form compact-form" th:action="@{/panel/services/{id}(id=${s.id})}" method="post">
                 <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
-                <button class="text-button" type="submit" th:text="${s.active ? 'Pausar' : 'Reativar'}">
-                  Pausar
-                </button>
+
+                <label>
+                  Nome
+                  <input name="name" th:value="${s.name}" required>
+                </label>
+
+                <label>
+                  Duração
+                  <input name="durationMinutes" type="number" min="15" step="15" th:value="${s.durationMinutes}" required>
+                </label>
+
+                <label>
+                  Preço
+                  <input name="price" type="number" min="0" step="0.01" th:value="${s.price}">
+                </label>
+
+                <label>
+                  Descrição
+                  <textarea name="description" th:text="${s.description}"></textarea>
+                </label>
+
+                <label class="check-line">
+                  <input name="active" type="checkbox" value="true" th:checked="${s.active}">
+                  <span>Ativo</span>
+                </label>
+
+                <button class="text-button" type="submit">Atualizar</button>
+              </form>
+
+              <form th:action="@{/panel/services/{id}/delete(id=${s.id})}" method="post">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                <button class="text-button danger" type="submit">Excluir</button>
               </form>
             </div>
           </div>
@@ -706,21 +730,56 @@
               <textarea name="bio" placeholder="Uma apresentação curta"></textarea>
             </label>
 
+            <fieldset class="service-checks">
+              <legend>Serviços que realiza</legend>
+              <label class="check-line" th:each="s : ${activeServices}">
+                <input name="serviceIds" type="checkbox" th:value="${s.id}">
+                <span th:text="${s.name}">Serviço</span>
+              </label>
+            </fieldset>
+
             <button class="btn primary full" type="submit">Salvar profissional</button>
           </form>
 
           <div class="mini-list">
             <div th:each="p : ${professionals}">
-              <div>
-                <strong th:text="${p.name}">Profissional</strong>
-                <small th:text="${p.active ? 'Ativo' : 'Pausado'}">Ativo</small>
-              </div>
-
-              <form th:action="@{/panel/professionals/{id}/toggle(id=${p.id})}" method="post">
+              <form class="admin-form compact-form" th:action="@{/panel/professionals/{id}(id=${p.id})}" method="post">
                 <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
-                <button class="text-button" type="submit" th:text="${p.active ? 'Pausar' : 'Reativar'}">
-                  Pausar
-                </button>
+
+                <label>
+                  Nome
+                  <input name="name" th:value="${p.name}" required>
+                </label>
+
+                <label>
+                  WhatsApp
+                  <input name="whatsapp" th:value="${p.whatsapp}">
+                </label>
+
+                <label>
+                  Apresentação
+                  <textarea name="bio" th:text="${p.bio}"></textarea>
+                </label>
+
+                <fieldset class="service-checks">
+                  <legend>Serviços que realiza</legend>
+                  <label class="check-line" th:each="s : ${activeServices}">
+                    <input name="serviceIds" type="checkbox" th:value="${s.id}" th:checked="${#lists.contains(p.services.![id], s.id)}">
+                    <span th:text="${s.name}">Serviço</span>
+                  </label>
+                </fieldset>
+
+                <label class="check-line">
+                  <input name="active" type="checkbox" value="true" th:checked="${p.active}">
+                  <span>Ativo</span>
+                </label>
+
+                <button class="text-button" type="submit">Atualizar</button>
+              </form>
+
+              <form th:action="@{/panel/professionals/{id}/delete(id=${p.id})}" method="post">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                <button class="text-button danger" type="submit">Excluir</button>
               </form>
             </div>
           </div>

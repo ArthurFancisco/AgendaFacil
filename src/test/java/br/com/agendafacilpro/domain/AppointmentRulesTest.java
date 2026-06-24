@@ -19,6 +19,19 @@ class AppointmentRulesTest {
     }
 
     @Test
+    void expiredPendingApprovalDoesNotBlockSchedule() {
+        LocalDateTime now = LocalDateTime.of(2026, 6, 24, 10, 0);
+
+        assertThat(AppointmentRules.blocksSchedule(
+                AppointmentStatus.PENDING_APPROVAL,
+                now.plusDays(1),
+                now.minusHours(2),
+                30,
+                now
+        )).isFalse();
+    }
+
+    @Test
     void finishedStatusesDoNotBlockSchedule() {
         assertThat(AppointmentRules.blocksSchedule(AppointmentStatus.CANCELLED)).isFalse();
         assertThat(AppointmentRules.blocksSchedule(AppointmentStatus.NO_SHOW)).isFalse();
@@ -42,6 +55,58 @@ class AppointmentRulesTest {
         LocalDateTime existingEnd = LocalDateTime.of(2026, 6, 23, 10, 0);
 
         assertThat(AppointmentRules.overlaps(newStart, newEnd, existingStart, existingEnd)).isTrue();
+    }
+
+    @Test
+    void durationEndingExactlyAtExistingStartDoesNotConflict() {
+        LocalDateTime existingStart = LocalDateTime.of(2026, 6, 23, 11, 0);
+        LocalDateTime existingEnd = LocalDateTime.of(2026, 6, 23, 12, 0);
+
+        assertThat(AppointmentRules.overlaps(
+                LocalDateTime.of(2026, 6, 23, 10, 30),
+                LocalDateTime.of(2026, 6, 23, 11, 0),
+                existingStart,
+                existingEnd
+        )).isFalse();
+    }
+
+    @Test
+    void durationCrossingExistingStartConflicts() {
+        LocalDateTime existingStart = LocalDateTime.of(2026, 6, 23, 11, 0);
+        LocalDateTime existingEnd = LocalDateTime.of(2026, 6, 23, 12, 0);
+
+        assertThat(AppointmentRules.overlaps(
+                LocalDateTime.of(2026, 6, 23, 10, 30),
+                LocalDateTime.of(2026, 6, 23, 11, 30),
+                existingStart,
+                existingEnd
+        )).isTrue();
+    }
+
+    @Test
+    void durationStartingExactlyAtExistingEndDoesNotConflict() {
+        LocalDateTime existingStart = LocalDateTime.of(2026, 6, 23, 11, 0);
+        LocalDateTime existingEnd = LocalDateTime.of(2026, 6, 23, 12, 0);
+
+        assertThat(AppointmentRules.overlaps(
+                LocalDateTime.of(2026, 6, 23, 12, 0),
+                LocalDateTime.of(2026, 6, 23, 12, 30),
+                existingStart,
+                existingEnd
+        )).isFalse();
+    }
+
+    @Test
+    void durationStartingInsideExistingConflicts() {
+        LocalDateTime existingStart = LocalDateTime.of(2026, 6, 23, 11, 0);
+        LocalDateTime existingEnd = LocalDateTime.of(2026, 6, 23, 12, 0);
+
+        assertThat(AppointmentRules.overlaps(
+                LocalDateTime.of(2026, 6, 23, 11, 30),
+                LocalDateTime.of(2026, 6, 23, 12, 30),
+                existingStart,
+                existingEnd
+        )).isTrue();
     }
 
     @Test

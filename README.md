@@ -32,7 +32,7 @@ mvn spring-boot:run
 
 Acesse:
 
-- Público: `http://localhost:8080/agenda/bella-estetica`
+- Público: `http://localhost:8080/agenda/agenda-demo`
 - Painel: `http://localhost:8080/panel`
 
 ## Configuração

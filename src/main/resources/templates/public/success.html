@@ -1,6 +1,38 @@
-<!DOCTYPE html><html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Solicitação enviada · AgendaFácil Pro</title><link rel="stylesheet" th:href="@{/css/app.css}"></head>
-<body class="public"><main class="shell narrow"><section class="card center"><div class="done">✓</div><span class="eyebrow" th:text="${summary.status}">Pendente</span><h1>Recebemos sua solicitação</h1><p class="muted">Veja o resumo e, se quiser, chame o estabelecimento no WhatsApp.</p>
-  <div class="summary left"><span th:text="${summary.establishment}">Estabelecimento</span><strong th:text="${summary.service}">Serviço</strong><p th:text="${summary.professional}">Profissional</p><p><span th:text="${#temporals.format(summary.start,'dd/MM/yyyy')}">22/06/2026</span> · <span th:text="${#temporals.format(summary.start,'HH:mm')}">09:00</span> até <span th:text="${#temporals.format(summary.end,'HH:mm')}">10:00</span></p><p th:text="${summary.customer}">Cliente</p></div>
-  <p><a class="btn primary" th:href="${summary.whatsappUrl}" target="_blank" rel="noopener">Chamar no WhatsApp</a> <a class="btn light" th:href="@{/agenda/bella-estetica}">Fazer outro agendamento</a></p>
-</section></main></body></html>
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Solicitação enviada · AgendaFácil Pro</title>
+  <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body class="public">
+<main class="shell narrow">
+  <section class="card center">
+    <div class="done">✓</div>
+    <span class="eyebrow" th:text="${summary.status}">Pendente</span>
+    <h1>Recebemos sua solicitação</h1>
+    <p class="muted">Veja o resumo e, se quiser, chame o estabelecimento no WhatsApp.</p>
+
+    <div class="summary left">
+      <span th:text="${summary.establishment}">Estabelecimento</span>
+      <strong th:text="${summary.service}">Serviço</strong>
+      <p th:text="${summary.professional}">Profissional</p>
+      <p>
+        <span th:text="${#temporals.format(summary.start,'dd/MM/yyyy')}">22/06/2026</span>
+        ·
+        <span th:text="${#temporals.format(summary.start,'HH:mm')}">09:00</span>
+        até
+        <span th:text="${#temporals.format(summary.end,'HH:mm')}">10:00</span>
+      </p>
+      <p th:text="${summary.customer}">Cliente</p>
+    </div>
+
+    <p>
+      <a class="btn primary" th:href="${summary.whatsappUrl}" target="_blank" rel="noopener">Chamar no WhatsApp</a>
+      <a class="btn light" th:href="@{/agenda/{slug}(slug=${summary.establishmentSlug})}">Fazer outro agendamento</a>
+    </p>
+  </section>
+</main>
+</body>
+</html>

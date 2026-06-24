@@ -74,3 +74,9 @@ As configuracoes do estabelecimento sao salvas por POST em `/panel/settings`, co
 `BookingGuardService` usa limites por estabelecimento para tentativas por telefone e por IP em 1 hora. Isso evita que excesso de tentativas em um estabelecimento afete outro.
 
 O agendamento publico tambem valida limite de horarios futuros por telefone, bloqueio por faltas e servicos longos. Mensagens para cliente final continuam simples e nao expoem detalhes internos de antifraude.
+
+## Validação de catálogo e slot
+
+O serviço, o profissional e o vínculo entre eles são sempre buscados pelo `establishmentId` confiável. O cliente pode enviar IDs no formulário público, mas o backend rejeita profissional sem vínculo com o serviço escolhido.
+
+O horário enviado no POST público ou manual também é revalidado no backend. A aplicação não confia apenas nos links renderizados pelo HTML para decidir disponibilidade.

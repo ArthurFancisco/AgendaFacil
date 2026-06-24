@@ -1,0 +1,160 @@
+package br.com.agendafacilpro.web;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import java.util.Optional;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.web.servlet.mvc.support.RedirectAttributesModelMap;
+
+import br.com.agendafacilpro.domain.AppUser;
+import br.com.agendafacilpro.domain.Establishment;
+import br.com.agendafacilpro.domain.Professional;
+import br.com.agendafacilpro.domain.ServiceItem;
+import br.com.agendafacilpro.repo.CustomerRepo;
+import br.com.agendafacilpro.repo.ProfessionalRepo;
+import br.com.agendafacilpro.repo.ServiceItemRepo;
+import br.com.agendafacilpro.repo.TimeBlockRepo;
+import br.com.agendafacilpro.service.AppointmentService;
+import br.com.agendafacilpro.service.CurrentUserService;
+import br.com.agendafacilpro.service.DashboardService;
+import br.com.agendafacilpro.service.EstablishmentSettingsService;
+
+class PanelControllerCatalogPolicyTest {
+
+    private final FakeCurrentUserService current = new FakeCurrentUserService();
+    private final DashboardService dashboard = new DashboardService(null, null);
+    private final FakeAppointmentService appointments = new FakeAppointmentService();
+    private final ServiceItemRepo services = mock(ServiceItemRepo.class);
+    private final ProfessionalRepo professionals = mock(ProfessionalRepo.class);
+    private final TimeBlockRepo blocks = mock(TimeBlockRepo.class);
+    private final CustomerRepo customers = mock(CustomerRepo.class);
+    private final EstablishmentSettingsService settings = new EstablishmentSettingsService(null);
+    private final PanelController controller = new PanelController(current, dashboard, appointments, services, professionals, blocks, customers, settings);
+
+    private Establishment establishment;
+
+    @BeforeEach
+    void setUp() {
+        establishment = new Establishment();
+        establishment.setId(1L);
+        establishment.setName("AgendaFácil Demo");
+        AppUser user = new AppUser();
+        user.setEstablishment(establishment);
+        current.user = user;
+    }
+
+    @Test
+    void serviceWithoutHistoryCanBeDeleted() {
+        ServiceItem service = service();
+        when(services.findByIdAndEstablishmentId(2L, 1L)).thenReturn(Optional.of(service));
+        appointments.serviceCount = 0L;
+        RedirectAttributesModelMap redirect = new RedirectAttributesModelMap();
+
+        String route = controller.deleteService(2L, redirect);
+
+        assertThat(route).isEqualTo("redirect:/panel#configuracoes");
+        verify(services).delete(service);
+    }
+
+    @Test
+    void serviceWithHistoryIsArchivedInsteadOfDeleted() {
+        ServiceItem service = service();
+        when(services.findByIdAndEstablishmentId(2L, 1L)).thenReturn(Optional.of(service));
+        appointments.serviceCount = 1L;
+        RedirectAttributesModelMap redirect = new RedirectAttributesModelMap();
+
+        controller.deleteService(2L, redirect);
+
+        assertThat(service.isActive()).isFalse();
+        verify(services).save(service);
+        assertThat(redirect.getFlashAttributes()).containsKey("error");
+    }
+
+    @Test
+    void professionalWithoutHistoryCanBeDeleted() {
+        Professional professional = professional();
+        when(professionals.findByIdAndEstablishmentId(3L, 1L)).thenReturn(Optional.of(professional));
+        appointments.professionalCount = 0L;
+        RedirectAttributesModelMap redirect = new RedirectAttributesModelMap();
+
+        String route = controller.deleteProfessional(3L, redirect);
+
+        assertThat(route).isEqualTo("redirect:/panel#configuracoes");
+        verify(professionals).delete(professional);
+    }
+
+    @Test
+    void professionalWithHistoryIsArchivedInsteadOfDeleted() {
+        Professional professional = professional();
+        when(professionals.findByIdAndEstablishmentId(3L, 1L)).thenReturn(Optional.of(professional));
+        appointments.professionalCount = 1L;
+        RedirectAttributesModelMap redirect = new RedirectAttributesModelMap();
+
+        controller.deleteProfessional(3L, redirect);
+
+        assertThat(professional.isActive()).isFalse();
+        verify(professionals).save(professional);
+        assertThat(redirect.getFlashAttributes()).containsKey("error");
+    }
+
+    private ServiceItem service() {
+        ServiceItem service = new ServiceItem();
+        service.setId(2L);
+        service.setEstablishment(establishment);
+        service.setName("Atendimento Completo");
+        service.setDurationMinutes(60);
+        service.setActive(true);
+        return service;
+    }
+
+    private Professional professional() {
+        Professional professional = new Professional();
+        professional.setId(3L);
+        professional.setEstablishment(establishment);
+        professional.setName("Profissional 1");
+        professional.setActive(true);
+        return professional;
+    }
+
+    private static class FakeCurrentUserService extends CurrentUserService {
+        private AppUser user;
+
+        FakeCurrentUserService() {
+            super(null);
+        }
+
+        @Override
+        public AppUser user() {
+            return user;
+        }
+
+        @Override
+        public Long establishmentId() {
+            return user.getEstablishment().getId();
+        }
+    }
+
+    private static class FakeAppointmentService extends AppointmentService {
+        private long serviceCount;
+        private long professionalCount;
+
+        FakeAppointmentService() {
+            super(null, null, null, null, null, null, null, null, null);
+        }
+
+        @Override
+        public long countAppointmentsForService(Long establishmentId, Long serviceId) {
+            return serviceCount;
+        }
+
+        @Override
+        public long countAppointmentsForProfessional(Long establishmentId, Long professionalId) {
+            return professionalCount;
+        }
+    }
+}

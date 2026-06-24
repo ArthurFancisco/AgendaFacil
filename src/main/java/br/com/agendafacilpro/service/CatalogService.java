@@ -41,6 +41,12 @@ public class CatalogService {
     }
 
     @Transactional(readOnly = true)
+    public List<Professional> professionalsForService(Long est, Long serviceId) {
+        service(serviceId, est);
+        return professionals.findActiveQualified(est, serviceId);
+    }
+
+    @Transactional(readOnly = true)
     public ServiceItem service(Long id, Long est) {
         return services.findByIdAndEstablishmentId(id, est).filter(ServiceItem::isActive).orElseThrow(() -> new IllegalArgumentException("Serviço indisponível."));
     }
@@ -48,5 +54,14 @@ public class CatalogService {
     @Transactional(readOnly = true)
     public Professional professional(Long id, Long est) {
         return professionals.findByIdAndEstablishmentId(id, est).filter(Professional::isActive).orElseThrow(() -> new IllegalArgumentException("Profissional indisponível."));
+    }
+
+    @Transactional(readOnly = true)
+    public Professional professionalForService(Long id, Long serviceId, Long est) {
+        ServiceItem service = service(serviceId, est);
+        return professionals.findByIdAndEstablishmentId(id, est)
+                .filter(Professional::isActive)
+                .filter(professional -> professional.performs(service))
+                .orElseThrow(() -> new IllegalArgumentException("Esse profissional não realiza o serviço escolhido."));
     }
 }

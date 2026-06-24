@@ -38,6 +38,10 @@ public interface AppointmentRepo extends JpaRepository<Appointment, Long> {
 
     List<Appointment> findByEstablishmentIdAndStatusAndCreatedAtBefore(Long id, AppointmentStatus status, LocalDateTime createdBefore);
 
+    long countByEstablishmentIdAndServiceItemId(Long establishmentId, Long serviceItemId);
+
+    long countByEstablishmentIdAndProfessionalId(Long establishmentId, Long professionalId);
+
     @Query("""
     select count(a)>0 from Appointment a
     where a.establishment.id=:establishmentId and a.professional.id=:professionalId

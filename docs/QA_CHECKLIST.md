@@ -64,3 +64,33 @@
 - [ ] Servico longo entra como pendente conforme configuracao.
 - [ ] Pendencia expirada por tempo libera horario.
 - [ ] Precos aparecem ou somem na pagina publica conforme configuracao.
+
+## Catálogo profissional
+
+- [ ] Profissional vinculado ao serviço aparece na etapa pública.
+- [ ] Profissional não vinculado ao serviço não aparece na etapa pública.
+- [ ] Acessar horários por URL com profissional não qualificado é bloqueado.
+- [ ] Enviar POST público com profissional não qualificado é bloqueado no backend.
+- [ ] Enviar POST manual com profissional não qualificado é bloqueado no backend.
+
+## Duração real e slots
+
+- [ ] Com atendimento existente 11:00-12:00, serviço de 30 min às 10:30 fica disponível.
+- [ ] Com atendimento existente 11:00-12:00, serviço de 60 min às 10:30 fica indisponível.
+- [ ] Com atendimento existente 11:00-12:00, serviço de 30 min às 12:00 fica disponível.
+- [ ] POST com horário fora da grade de 30 minutos é rejeitado.
+- [ ] POST com horário fora do expediente é rejeitado.
+- [ ] Página pública mostra motivos simples de indisponibilidade, sem enum cru.
+- [ ] Slot em conflito ou que não cabe mostra sugestão simples quando houver alternativa.
+
+## Edição, exclusão e arquivamento
+
+- [ ] Dono edita nome, descrição, duração, preço e status de serviço.
+- [ ] Dono não consegue salvar serviço com duração inválida ou preço negativo.
+- [ ] Dono edita nome, WhatsApp, bio, status e serviços do profissional.
+- [ ] Profissional ativo exige pelo menos um serviço selecionado.
+- [ ] Serviço sem histórico pode ser excluído.
+- [ ] Serviço com histórico é arquivado e mostra mensagem humana.
+- [ ] Profissional sem histórico pode ser excluído.
+- [ ] Profissional com histórico é arquivado e mostra mensagem humana.
+- [ ] Item inativo não aparece no agendamento público.

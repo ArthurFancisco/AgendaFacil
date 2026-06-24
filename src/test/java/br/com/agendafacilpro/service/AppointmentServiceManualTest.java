@@ -69,6 +69,7 @@ class AppointmentServiceManualTest {
         user = user(establishment);
         serviceItem = serviceItem(establishment);
         professional = professional(establishment);
+        professional.getServices().add(serviceItem);
 
         when(appointments.findByEstablishmentIdAndStatusAndStartAtBefore(eq(1L), eq(AppointmentStatus.PENDING_APPROVAL), any(LocalDateTime.class))).thenReturn(List.of());
         when(appointments.findByEstablishmentIdAndStatusAndCreatedAtBefore(eq(1L), eq(AppointmentStatus.PENDING_APPROVAL), any(LocalDateTime.class))).thenReturn(List.of());
@@ -113,9 +114,32 @@ class AppointmentServiceManualTest {
 
         assertThatThrownBy(() -> service.createManual(establishment, user, request("Ana Cliente", "(17) 98888-7777")))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("não está mais disponível");
+                .hasMessageContaining("não está disponível para este serviço");
 
         verify(appointments, never()).save(any(Appointment.class));
+    }
+
+    @Test
+    void manualBookingRejectsProfessionalNotLinkedToService() {
+        professional.getServices().clear();
+
+        assertThatThrownBy(() -> service.createManual(establishment, user, request("Ana Cliente", "(17) 98888-7777")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("não realiza o serviço escolhido");
+    }
+
+    @Test
+    void manualBookingRejectsManipulatedTimeOutsideSlotGrid() {
+        assertThatThrownBy(() -> service.createManual(establishment, user, requestAt("Ana Cliente", "(17) 98888-7777", LocalTime.of(9, 10))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("não está disponível para este serviço");
+    }
+
+    @Test
+    void manualBookingRejectsTimeOutsideBusinessHours() {
+        assertThatThrownBy(() -> service.createManual(establishment, user, requestAt("Ana Cliente", "(17) 98888-7777", LocalTime.of(18, 0))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("não está disponível para este serviço");
     }
 
     @Test
@@ -177,6 +201,10 @@ class AppointmentServiceManualTest {
 
     private ManualAppointmentRequest request(String name, String phone) {
         return new ManualAppointmentRequest(name, phone, 2L, 3L, LocalDate.now().plusDays(1), LocalTime.of(9, 0), "chegou pelo telefone", false);
+    }
+
+    private ManualAppointmentRequest requestAt(String name, String phone, LocalTime time) {
+        return new ManualAppointmentRequest(name, phone, 2L, 3L, LocalDate.now().plusDays(1), time, "chegou pelo telefone", false);
     }
 
     private Establishment establishment() {
