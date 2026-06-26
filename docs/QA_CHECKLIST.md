@@ -3,6 +3,11 @@
 ## Agenda pública
 
 - [ ] Agendar em horário disponível cria reserva.
+- [ ] Fluxo público mostra stepper nas etapas principais.
+- [ ] Etapas após serviço mostram resumo compacto do que já foi escolhido.
+- [ ] A etapa de dados leva para revisão e não salva agendamento ainda.
+- [ ] A etapa de confirmação salva somente ao clicar em "Confirmar agendamento".
+- [ ] Tela de sucesso explica claramente se ficou confirmado ou pendente.
 - [ ] Tentar agendar horário ocupado exibe mensagem amigável e não cria duplicidade.
 - [ ] Reserva pendente bloqueia o horário enquanto válida.
 - [ ] Reserva pendente expirada libera o horário.

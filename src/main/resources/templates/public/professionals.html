@@ -8,25 +8,55 @@
 </head>
 <body class="public">
 <main class="shell">
+  <nav class="booking-stepper" aria-label="Etapas do agendamento">
+    <div class="stepper-mobile-summary">
+      <div>
+        <span th:text="|Etapa ${currentStep} de 6|">Etapa 2 de 6</span>
+        <strong th:text="${currentStepLabel}">Profissional</strong>
+      </div>
+      <span class="stepper-progress"><span th:style="|width: ${flowProgress}%|"></span></span>
+    </div>
+    <ol>
+      <li th:each="step : ${flowSteps}" th:classappend="${step.number < currentStep ? ' done' : (step.number == currentStep ? ' active' : '')}">
+        <span th:text="${step.number}">1</span><b th:text="${step.label}">Serviço</b>
+      </li>
+    </ol>
+  </nav>
+
   <a class="back" th:href="@{/agenda/{slug}(slug=${establishment.slug})}">← Voltar para serviços</a>
 
-  <section class="card">
-    <span class="eyebrow" th:text="${service.name}">Serviço</span>
-    <h1>Com quem você quer marcar?</h1>
-    <p class="muted">Escolha um profissional para ver os horários disponíveis.</p>
+  <div class="booking-layout">
+    <aside class="booking-summary">
+      <span class="eyebrow">Resumo</span>
+      <dl>
+        <dt>Serviço</dt><dd th:text="${service.name}">Ainda não escolhido</dd>
+        <dt>Duração</dt><dd th:text="|${service.durationMinutes} min|">Ainda não escolhido</dd>
+        <dt th:if="${settings.showPricesOnPublicPage and service.price != null}">Valor</dt>
+        <dd th:if="${settings.showPricesOnPublicPage and service.price != null}" th:text="|R$ ${#numbers.formatDecimal(service.price, 1, 'POINT', 2, 'COMMA')}|">Ainda não escolhido</dd>
+        <dt>Profissional</dt><dd>Ainda não escolhido</dd>
+        <dt>Data</dt><dd>Ainda não escolhido</dd>
+        <dt>Horário</dt><dd>Ainda não escolhido</dd>
+      </dl>
+    </aside>
 
-    <div class="empty-state" th:if="${#lists.isEmpty(professionals)}">
-      Nenhum profissional disponível para este serviço no momento.
-    </div>
+    <section class="card">
+      <span class="eyebrow">Etapa 2 de 6</span>
+      <h1>Escolha quem vai atender você</h1>
+      <p class="muted">Mostramos apenas profissionais que realizam o serviço escolhido.</p>
 
-    <div class="grid" th:if="${not #lists.isEmpty(professionals)}">
-      <a class="choice" th:each="professional : ${professionals}" th:href="@{/agenda/{slug}/servicos/{serviceId}/profissionais/{professionalId}/horarios(slug=${establishment.slug},serviceId=${service.id},professionalId=${professional.id})}">
-        <strong th:text="${professional.name}">Profissional</strong>
-        <span th:text="${professional.bio}">Atendimento cuidadoso.</span>
-        <small>Ver horários</small>
-      </a>
-    </div>
-  </section>
+      <div class="empty-state" th:if="${#lists.isEmpty(professionals)}">
+        Nenhum profissional disponível para este serviço no momento. Fale com o estabelecimento para mais informações.
+      </div>
+
+      <div class="grid" th:if="${not #lists.isEmpty(professionals)}">
+        <a class="choice" th:each="professional : ${professionals}" th:href="@{/agenda/{slug}/servicos/{serviceId}/profissionais/{professionalId}/horarios(slug=${establishment.slug},serviceId=${service.id},professionalId=${professional.id})}">
+          <strong th:text="${professional.name}">Profissional</strong>
+          <span th:text="${professional.bio ?: 'Atendimento com horário marcado.'}">Atendimento cuidadoso.</span>
+          <small>Ver horários</small>
+        </a>
+      </div>
+    </section>
+  </div>
 </main>
 </body>
 </html>

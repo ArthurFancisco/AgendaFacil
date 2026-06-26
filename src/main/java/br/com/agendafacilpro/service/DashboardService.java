@@ -1,9 +1,11 @@
 package br.com.agendafacilpro.service;
 
+import java.math.BigDecimal;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -38,6 +40,14 @@ public class DashboardService {
     }
 
     public record Data(List<Metric> metrics, List<Appointment> pending, List<Day> week, List<Appointment> today, List<Appointment> agenda, List<Appointment> history) {
+
+    }
+
+    public record ReportMetric(String label, String value, String hint) {
+
+    }
+
+    public record Reports(List<ReportMetric> metrics, List<Appointment> recentHistory) {
 
     }
 
@@ -80,6 +90,33 @@ public class DashboardService {
                 agenda,
                 appointments.findTop20ByEstablishmentIdAndStatusInOrderByStartAtDesc(est, List.of(AppointmentStatus.CANCELLED, AppointmentStatus.NO_SHOW, AppointmentStatus.COMPLETED, AppointmentStatus.EXPIRED))
         );
+    }
+
+    @Transactional
+    public Reports reports(Long est) {
+        appointmentService.expire(est);
+        YearMonth month = YearMonth.now();
+        LocalDateTime start = month.atDay(1).atStartOfDay();
+        LocalDateTime end = month.plusMonths(1).atDay(1).atStartOfDay();
+        long completed = appointments.countByEstablishmentIdAndStatusAndStartAtBetween(est, AppointmentStatus.COMPLETED, start, end);
+        long noShows = appointments.countByEstablishmentIdAndStatusAndStartAtBetween(est, AppointmentStatus.NO_SHOW, start, end);
+        long cancelled = appointments.countByEstablishmentIdAndStatusAndStartAtBetween(est, AppointmentStatus.CANCELLED, start, end);
+        long confirmed = appointments.countByEstablishmentIdAndStatusInAndStartAtBetween(est, List.of(AppointmentStatus.CONFIRMED, AppointmentStatus.PENDING_APPROVAL), start, end);
+        BigDecimal expectedRevenue = appointments.sumServicePricesByStatusInAndStartAtBetween(est, List.of(AppointmentStatus.CONFIRMED, AppointmentStatus.PENDING_APPROVAL, AppointmentStatus.COMPLETED), start, end);
+        if (expectedRevenue == null) {
+            expectedRevenue = BigDecimal.ZERO;
+        }
+        long totalRelevant = completed + noShows + cancelled + confirmed;
+        String noShowRate = totalRelevant == 0 ? "0%" : Math.round((noShows * 100.0) / totalRelevant) + "%";
+        List<ReportMetric> metrics = List.of(
+                new ReportMetric("Atendimentos concluídos", String.valueOf(completed), "Finalizados no mês atual"),
+                new ReportMetric("Faltas", String.valueOf(noShows), "Clientes que não compareceram"),
+                new ReportMetric("Cancelamentos", String.valueOf(cancelled), "Cancelados no mês atual"),
+                new ReportMetric("Horários ativos", String.valueOf(confirmed), "Confirmados ou pendentes no mês"),
+                new ReportMetric("Faturamento previsto", "R$ " + expectedRevenue, "Soma dos preços cadastrados"),
+                new ReportMetric("Taxa de faltas", noShowRate, "Baseada nos registros do mês")
+        );
+        return new Reports(metrics, appointments.findTop20ByEstablishmentIdAndStatusInOrderByStartAtDesc(est, List.of(AppointmentStatus.CANCELLED, AppointmentStatus.NO_SHOW, AppointmentStatus.COMPLETED, AppointmentStatus.EXPIRED)));
     }
 
     private List<Day> week(Long est, LocalDate today, Long professionalId) {

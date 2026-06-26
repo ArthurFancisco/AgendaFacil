@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Profissionais · AgendaFácil Pro</title>
+  <link rel="stylesheet" th:href="@{/css/app.css}">
+  <script defer th:src="@{/js/app.js}"></script>
+</head>
+
+<body class="admin-page">
+  <aside th:replace="~{panel/fragments :: sidebar(${activePage})}"></aside>
+
+  <main class="admin-main">
+    <header class="admin-header page-header">
+      <div>
+        <span class="eyebrow">Equipe</span>
+        <h1 class="page-title" th:text="${pageTitle}">Profissionais</h1>
+        <p class="page-subtitle" th:text="${pageSubtitle}">Organize equipe e serviços realizados.</p>
+      </div>
+
+      <div class="header-actions">
+        <button class="btn primary" type="button" data-modal-open="newProfessional">Novo profissional</button>
+      </div>
+    </header>
+
+    <div th:replace="~{panel/fragments :: flash}"></div>
+
+    <section class="admin-card">
+      <div class="section-title">
+        <div>
+          <span class="eyebrow">Lista</span>
+          <h2>Profissionais cadastrados</h2>
+        </div>
+        <form class="inline-search" th:action="@{/panel/professionals}" method="get">
+          <input name="q" th:value="${professionalQuery}" placeholder="Buscar profissional">
+          <button class="btn secondary" type="submit">Buscar</button>
+        </form>
+      </div>
+
+      <div class="table-wrap" th:if="${not #lists.isEmpty(professionals)}">
+        <table class="admin-table data-table">
+          <thead>
+          <tr>
+            <th>Profissional</th>
+            <th>WhatsApp</th>
+            <th>Serviços</th>
+            <th>Status</th>
+            <th>Ações</th>
+          </tr>
+          </thead>
+          <tbody>
+          <tr th:each="p : ${professionals}">
+            <td>
+              <strong th:text="${p.name}">Profissional</strong>
+              <small class="muted-text" th:if="${p.bio != null and !#strings.isEmpty(p.bio)}" th:text="${p.bio}">Bio</small>
+            </td>
+            <td th:text="${p.whatsapp != null and !#strings.isEmpty(p.whatsapp) ? p.whatsapp : '-'}">-</td>
+            <td>
+              <div class="chip-list" th:if="${p.services != null and p.services.size() > 0}">
+                <span class="chip" th:each="s : ${p.services}" th:text="${s.name}">Serviço</span>
+              </div>
+              <span class="muted-text" th:if="${p.services == null or p.services.size() == 0}">Nenhum serviço vinculado</span>
+            </td>
+            <td><span th:class="${p.active ? 'badge completed' : 'badge muted'}" th:text="${p.active ? 'Ativo' : 'Inativo'}">Ativo</span></td>
+            <td>
+              <div class="table-actions">
+                <button class="btn small secondary" type="button" th:attr="data-modal-open=|editProfessional${p.id}|">Editar</button>
+                <form th:action="@{/panel/professionals/{id}/toggle(id=${p.id})}" method="post">
+                  <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                  <button class="btn small secondary" type="submit" th:text="${p.active ? 'Arquivar' : 'Reativar'}">Arquivar</button>
+                </form>
+                <form th:action="@{/panel/professionals/{id}/delete(id=${p.id})}" method="post">
+                  <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                  <button class="btn small danger-outline" type="submit">Excluir</button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="empty-state" th:if="${#lists.isEmpty(professionals)}">
+        Nenhum profissional encontrado.
+      </div>
+    </section>
+
+    <dialog class="modal" id="newProfessional" aria-labelledby="newProfessionalTitle">
+      <form method="dialog" class="modal-close-form">
+        <button class="modal-close" type="submit" aria-label="Fechar">×</button>
+      </form>
+      <div class="modal-header">
+        <span class="eyebrow">Novo</span>
+        <h2 id="newProfessionalTitle">Novo profissional</h2>
+        <p>Informe os dados básicos e marque os serviços realizados.</p>
+      </div>
+      <form class="admin-form" th:action="@{/panel/professionals}" method="post">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+        <div class="form-row">
+          <label>
+            Nome
+            <input name="name" placeholder="Ex: Mariana Souza" autocomplete="name" required>
+          </label>
+          <label>
+            WhatsApp
+            <input name="whatsapp" placeholder="17999999999" autocomplete="tel" inputmode="tel">
+          </label>
+        </div>
+        <label>
+          Apresentação
+          <textarea name="bio" placeholder="Uma apresentação curta"></textarea>
+        </label>
+        <fieldset class="service-checks">
+          <legend>Serviços que realiza</legend>
+          <label class="check-line" th:each="s : ${activeServices}">
+            <input name="serviceIds" type="checkbox" th:value="${s.id}">
+            <span th:text="${s.name}">Serviço</span>
+          </label>
+        </fieldset>
+        <div class="modal-actions">
+          <button class="btn secondary" type="button" data-modal-close>Cancelar</button>
+          <button class="btn primary" type="submit">Salvar profissional</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="modal" th:each="p : ${professionals}" th:id="|editProfessional${p.id}|" th:attr="aria-labelledby=|editProfessionalTitle${p.id}|">
+      <form method="dialog" class="modal-close-form">
+        <button class="modal-close" type="submit" aria-label="Fechar">×</button>
+      </form>
+      <div class="modal-header">
+        <span class="eyebrow">Editar</span>
+        <h2 th:id="|editProfessionalTitle${p.id}|">Editar profissional</h2>
+        <p>Atualize dados, disponibilidade e serviços realizados.</p>
+      </div>
+      <form class="admin-form" th:action="@{/panel/professionals/{id}(id=${p.id})}" method="post">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+        <div class="form-row">
+          <label>
+            Nome
+            <input name="name" th:value="${p.name}" required>
+          </label>
+          <label>
+            WhatsApp
+            <input name="whatsapp" th:value="${p.whatsapp}" autocomplete="tel" inputmode="tel">
+          </label>
+        </div>
+        <label>
+          Apresentação
+          <textarea name="bio" th:text="${p.bio}"></textarea>
+        </label>
+        <fieldset class="service-checks">
+          <legend>Serviços que realiza</legend>
+          <label class="check-line" th:each="s : ${activeServices}">
+            <input name="serviceIds" type="checkbox" th:value="${s.id}" th:checked="${#lists.contains(p.services.![id], s.id)}">
+            <span th:text="${s.name}">Serviço</span>
+          </label>
+        </fieldset>
+        <label class="check-line">
+          <input name="active" type="checkbox" value="true" th:checked="${p.active}">
+          <span>Ativo</span>
+        </label>
+        <div class="modal-actions">
+          <button class="btn secondary" type="button" data-modal-close>Cancelar</button>
+          <button class="btn primary" type="submit">Salvar alterações</button>
+        </div>
+      </form>
+    </dialog>
+  </main>
+</body>
+</html>

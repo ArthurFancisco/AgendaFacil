@@ -8,33 +8,62 @@
 </head>
 <body class="public">
 <main class="shell">
+  <nav class="booking-stepper" aria-label="Etapas do agendamento">
+    <div class="stepper-mobile-summary">
+      <div>
+        <span th:text="|Etapa ${currentStep} de 6|">Etapa 4 de 6</span>
+        <strong th:text="${currentStepLabel}">Horário</strong>
+      </div>
+      <span class="stepper-progress"><span th:style="|width: ${flowProgress}%|"></span></span>
+    </div>
+    <ol>
+      <li th:each="step : ${flowSteps}" th:classappend="${step.number < currentStep ? ' done' : (step.number == currentStep ? ' active' : '')}">
+        <span th:text="${step.number}">1</span><b th:text="${step.label}">Serviço</b>
+      </li>
+    </ol>
+  </nav>
+
   <a class="back" th:href="@{/agenda/{slug}/servicos/{serviceId}/profissionais(slug=${establishment.slug},serviceId=${service.id})}">← Trocar profissional</a>
 
-  <section class="card">
-    <span class="eyebrow" th:text="${service.name} + ' · ' + ${professional.name}">Serviço · Profissional</span>
-    <h1>Escolha o dia e o horário</h1>
-    <p class="muted">Horários confirmados ou pendentes ficam indisponíveis. Se uma reserva for recusada pelo estabelecimento, o horário volta a ficar disponível automaticamente.</p>
+  <div class="booking-layout">
+    <aside class="booking-summary">
+      <span class="eyebrow">Resumo</span>
+      <dl>
+        <dt>Serviço</dt><dd th:text="${service.name}">Ainda não escolhido</dd>
+        <dt>Duração</dt><dd th:text="|${service.durationMinutes} min|">Ainda não escolhido</dd>
+        <dt>Profissional</dt><dd th:text="${professional.name}">Ainda não escolhido</dd>
+        <dt>Data</dt><dd th:text="${#temporals.format(selectedDate,'dd/MM/yyyy')}">Ainda não escolhido</dd>
+        <dt>Horário</dt><dd>Ainda não escolhido</dd>
+      </dl>
+    </aside>
 
-    <form method="get" class="date-line" th:action="@{/agenda/{slug}/servicos/{serviceId}/profissionais/{professionalId}/horarios(slug=${establishment.slug},serviceId=${service.id},professionalId=${professional.id})}">
-      <label>Dia do atendimento<input type="date" name="date" th:value="${selectedDate}" required></label>
-      <button class="btn light" type="submit">Atualizar</button>
-    </form>
+    <section class="card">
+      <span class="eyebrow">Etapas 3 e 4 de 6</span>
+      <h1>Escolha o dia e o horário</h1>
+      <p class="muted">A data selecionada é <b th:text="${#temporals.format(selectedDate,'dd/MM/yyyy')}">24/06/2026</b>. Horários indisponíveis aparecem desabilitados com um motivo simples.</p>
 
-    <div class="slots">
-      <div th:each="slot : ${slots}">
-        <a class="slot" th:if="${slot.available}" th:href="@{/agenda/{slug}/servicos/{serviceId}/profissionais/{professionalId}/dados(slug=${establishment.slug},serviceId=${service.id},professionalId=${professional.id},date=${selectedDate},time=${slot.start})}">
-          <b th:text="${#temporals.format(slot.start, 'HH:mm')}">08:00</b>
-          <span th:text="'até ' + ${#temporals.format(slot.end, 'HH:mm')}">até 09:00</span>
-        </a>
+      <form method="get" class="date-line" th:action="@{/agenda/{slug}/servicos/{serviceId}/profissionais/{professionalId}/horarios(slug=${establishment.slug},serviceId=${service.id},professionalId=${professional.id})}">
+        <label>Dia do atendimento<input type="date" name="date" th:value="${selectedDate}" required></label>
+        <button class="btn light" type="submit">Atualizar data</button>
+      </form>
 
-        <div class="slot off" th:unless="${slot.available}">
-          <b th:text="${#temporals.format(slot.start, 'HH:mm')}">08:00</b>
-          <span th:text="${slot.reasonLabel}">Indisponível no momento</span>
-          <small th:if="${slot.suggestionText}" th:text="${slot.suggestionText}">Tente outro horário.</small>
+      <div class="slots">
+        <div th:each="slot : ${slots}">
+          <a class="slot" th:if="${slot.available}" th:href="@{/agenda/{slug}/servicos/{serviceId}/profissionais/{professionalId}/dados(slug=${establishment.slug},serviceId=${service.id},professionalId=${professional.id},date=${selectedDate},time=${slot.start})}" th:aria-label="|Escolher horário ${#temporals.format(slot.start, 'HH:mm')}|">
+            <b th:text="${#temporals.format(slot.start, 'HH:mm')}">08:00</b>
+            <span th:text="'até ' + ${#temporals.format(slot.end, 'HH:mm')}">até 09:00</span>
+            <small>Disponível</small>
+          </a>
+
+          <div class="slot off" th:unless="${slot.available}" aria-disabled="true">
+            <b th:text="${#temporals.format(slot.start, 'HH:mm')}">08:00</b>
+            <span th:text="${slot.reasonLabel}">Indisponível no momento</span>
+            <small th:if="${slot.suggestionText}" th:text="${slot.suggestionText}">Tente outro horário.</small>
+          </div>
         </div>
       </div>
-    </div>
-  </section>
+    </section>
+  </div>
 </main>
 </body>
 </html>

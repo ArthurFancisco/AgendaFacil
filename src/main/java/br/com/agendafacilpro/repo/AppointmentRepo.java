@@ -1,5 +1,6 @@
 package br.com.agendafacilpro.repo;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
@@ -41,6 +42,15 @@ public interface AppointmentRepo extends JpaRepository<Appointment, Long> {
     long countByEstablishmentIdAndServiceItemId(Long establishmentId, Long serviceItemId);
 
     long countByEstablishmentIdAndProfessionalId(Long establishmentId, Long professionalId);
+
+    @Query("""
+    select sum(a.serviceItem.price)
+    from Appointment a
+    where a.establishment.id=:establishmentId
+      and a.status in :statuses
+      and a.startAt>=:startAt and a.startAt<:endAt
+  """)
+    BigDecimal sumServicePricesByStatusInAndStartAtBetween(@Param("establishmentId") Long establishmentId, @Param("statuses") Collection<AppointmentStatus> statuses, @Param("startAt") LocalDateTime startAt, @Param("endAt") LocalDateTime endAt);
 
     @Query("""
     select count(a)>0 from Appointment a

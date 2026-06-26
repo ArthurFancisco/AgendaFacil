@@ -85,7 +85,7 @@ public class AppointmentService {
 
     }
 
-    public record Summary(String customer, String establishment, String establishmentSlug, String service, String professional, LocalDateTime start, LocalDateTime end, String status, String whatsappUrl) {
+    public record Summary(String customer, String establishment, String establishmentSlug, String service, String professional, LocalDateTime start, LocalDateTime end, String status, String statusMessage, String nextStep, String whatsappUrl) {
 
     }
 
@@ -111,6 +111,18 @@ public class AppointmentService {
             t = t.plusMinutes(SLOT_STEP_MINUTES);
         }
         return out;
+    }
+
+    /**
+     * Revalida um horário escolhido no front-end sem salvar agendamento.
+     */
+    @Transactional
+    public void validatePublicSlot(Establishment est, Long serviceId, Long professionalId, LocalDate date, LocalTime time) {
+        expire(est.getId());
+        BookingTarget target = bookingTarget(est.getId(), serviceId, professionalId);
+        LocalDateTime start = LocalDateTime.of(date, time);
+        LocalDateTime end = start.plusMinutes(target.serviceItem().getDurationMinutes());
+        validateSubmittedSlot(est.getId(), target.professional(), target.serviceItem(), start, end);
     }
 
     /**
@@ -212,7 +224,13 @@ public class AppointmentService {
                 .orElseThrow(() -> new IllegalArgumentException("Agendamento não encontrado."));
         String text = "Olá! Fiz uma solicitação de agendamento para " + appointment.getServiceItem().getName() + " com " + appointment.getProfessional().getName() + ".";
         String url = "https://wa.me/" + est.getWhatsapp() + "?text=" + URLEncoder.encode(text, StandardCharsets.UTF_8);
-        return new Summary(appointment.getCustomer().getName(), est.getName(), est.getSlug(), appointment.getServiceItem().getName(), appointment.getProfessional().getName(), appointment.getStartAt(), appointment.getEndAt(), view.statusLabel(appointment.getStatus()), url);
+        String statusMessage = appointment.getStatus() == AppointmentStatus.CONFIRMED
+                ? "Seu horário foi confirmado."
+                : "Seu pedido foi recebido e aguarda confirmação do estabelecimento.";
+        String nextStep = appointment.getStatus() == AppointmentStatus.CONFIRMED
+                ? "Se precisar falar com o estabelecimento, use o botão do WhatsApp."
+                : "O estabelecimento vai revisar seu pedido. Você pode chamar no WhatsApp se quiser acompanhar.";
+        return new Summary(appointment.getCustomer().getName(), est.getName(), est.getSlug(), appointment.getServiceItem().getName(), appointment.getProfessional().getName(), appointment.getStartAt(), appointment.getEndAt(), view.statusLabel(appointment.getStatus()), statusMessage, nextStep, url);
     }
 
     @Transactional(readOnly = true)

@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Configurações · AgendaFácil Pro</title>
+  <link rel="stylesheet" th:href="@{/css/app.css}">
+  <script defer th:src="@{/js/app.js}"></script>
+</head>
+
+<body class="admin-page">
+  <aside th:replace="~{panel/fragments :: sidebar(${activePage})}"></aside>
+
+  <main class="admin-main">
+    <header class="admin-header page-header">
+      <div>
+        <span class="eyebrow">Regras</span>
+        <h1 class="page-title" th:text="${pageTitle}">Configurações</h1>
+        <p class="page-subtitle" th:text="${pageSubtitle}">Ajuste regras da agenda online.</p>
+      </div>
+    </header>
+
+    <div th:replace="~{panel/fragments :: flash}"></div>
+
+    <form class="admin-form settings-form" th:action="@{/panel/settings}" method="post">
+      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+
+      <div class="settings-grid settings-grid-wide">
+        <section class="settings-card">
+          <span class="eyebrow">Agendamento</span>
+          <h2>Regras de agenda</h2>
+          <label>
+            Quantos horários futuros o mesmo telefone pode ter?
+            <input name="maxFutureAppointmentsPerPhone" type="number" min="1" max="20" th:value="${settings.maxFutureAppointmentsPerPhone}" required>
+            <small>Ajuda a evitar abuso de reservas pelo mesmo telefone.</small>
+          </label>
+          <label>
+            Horas mínimas para o cliente cancelar
+            <input name="minHoursBeforeClientCancel" type="number" min="0" max="168" th:value="${settings.minHoursBeforeClientCancel}" required>
+            <small>Define a antecedência mínima de cancelamento público.</small>
+          </label>
+          <label>
+            Serviços longos precisam de aprovação?
+            <input name="longServiceManualApprovalMinutes" type="number" min="15" max="480" step="15" th:value="${settings.longServiceManualApprovalMinutes}" required>
+            <small>Serviços acima desta duração, em minutos, ficam pendentes.</small>
+          </label>
+        </section>
+
+        <section class="settings-card">
+          <span class="eyebrow">Aprovação</span>
+          <h2>Pendências</h2>
+          <label class="check-line">
+            <input name="newClientRequiresApproval" type="checkbox" value="true" th:checked="${settings.newClientRequiresApproval}">
+            <span>Clientes novos precisam de aprovação?</span>
+          </label>
+          <label>
+            Por quanto tempo uma reserva pendente segura o horário?
+            <input name="pendingExpirationMinutes" type="number" min="5" max="1440" th:value="${settings.pendingExpirationMinutes}" required>
+            <small>Depois desse prazo, a pendência expira e libera o horário.</small>
+          </label>
+        </section>
+
+        <section class="settings-card">
+          <span class="eyebrow">Faltas</span>
+          <h2>Bloqueios de cliente</h2>
+          <label>
+            Depois de quantas faltas o cliente precisa de aprovação?
+            <input name="noShowCountForManualApproval" type="number" min="1" max="20" th:value="${settings.noShowCountForManualApproval}" required>
+          </label>
+          <label>
+            Depois de quantas faltas o cliente fica bloqueado?
+            <input name="noShowCountForBlock" type="number" min="1" max="20" th:value="${settings.noShowCountForBlock}" required>
+          </label>
+        </section>
+
+        <section class="settings-card">
+          <span class="eyebrow">Antifraude</span>
+          <h2>Tentativas</h2>
+          <label>
+            Quantas tentativas por telefone em uma hora?
+            <input name="maxAttemptsPerPhoneHour" type="number" min="1" max="50" th:value="${settings.maxAttemptsPerPhoneHour}" required>
+          </label>
+          <label>
+            Quantas tentativas por acesso em uma hora?
+            <input name="maxAttemptsPerIpHour" type="number" min="1" max="200" th:value="${settings.maxAttemptsPerIpHour}" required>
+          </label>
+        </section>
+
+        <section class="settings-card">
+          <span class="eyebrow">Página pública</span>
+          <h2>Exibição</h2>
+          <label class="check-line">
+            <input name="showPricesOnPublicPage" type="checkbox" value="true" th:checked="${settings.showPricesOnPublicPage}">
+            <span>Mostrar preços na página pública?</span>
+          </label>
+          <p class="muted-text">Clientes finais continuam agendando sem criar conta e sem senha.</p>
+        </section>
+
+        <section class="settings-card">
+          <span class="eyebrow">Estabelecimento</span>
+          <h2>Dados do estabelecimento</h2>
+          <label>
+            Nome
+            <input th:value="${establishment.name}" disabled>
+          </label>
+          <label>
+            Página pública
+            <input th:value="|/agenda/${establishment.slug}|" disabled>
+          </label>
+          <p class="muted-text">Edição desses dados fica fora desta sprint para não alterar regras sensíveis.</p>
+        </section>
+      </div>
+
+      <div class="sticky-actions">
+        <button class="btn primary" type="submit">Salvar configurações</button>
+      </div>
+    </form>
+  </main>
+</body>
+</html>

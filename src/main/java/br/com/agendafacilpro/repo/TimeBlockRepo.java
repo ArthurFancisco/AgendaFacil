@@ -14,6 +14,8 @@ public interface TimeBlockRepo extends JpaRepository<TimeBlock, Long> {
 
     List<TimeBlock> findTop20ByEstablishmentIdOrderByStartAtDesc(Long establishmentId);
 
+    List<TimeBlock> findByEstablishmentIdAndStartAtBetweenOrderByStartAtAsc(Long establishmentId, LocalDateTime startAt, LocalDateTime endAt);
+
     Optional<TimeBlock> findByIdAndEstablishmentId(Long id, Long establishmentId);
 
     @Query("""

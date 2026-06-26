@@ -98,12 +98,14 @@ Representa tabelas persistidas:
 5. `AppointmentService.slots` calcula horários de 30 em 30 minutos entre 08:00 e 18:00, usando a duração do serviço.
 6. Cada horário é recusado se já passou, se houver `TimeBlock` ativo ou se houver agendamento conflitante com status bloqueante.
 7. Cliente informa nome e telefone; o campo honeypot deve permanecer vazio.
-8. `BookingGuardService` normaliza telefone, valida limites antifraude por telefone/IP e registra a tentativa.
-9. `AppointmentService.create` revalida serviço, profissional, horário passado, bloqueio e conflito.
-10. Cliente é localizado por `establishmentId + phoneNormalized`, ou criado se ainda não existir naquele estabelecimento.
-11. Cliente bloqueado não agenda.
-12. Cliente novo ou com 2 ou mais faltas gera `PENDING_APPROVAL`; demais casos geram `CONFIRMED`.
-13. O cliente vê a tela de sucesso com link de WhatsApp para o estabelecimento.
+8. Antes de salvar, `/agenda/{slug}/revisar` revalida o slot e mostra uma tela de confirmação com todos os dados escolhidos.
+9. Somente o POST final em `/agenda/{slug}/confirmar` cria o agendamento.
+10. `BookingGuardService` normaliza telefone, valida limites antifraude por telefone/IP e registra a tentativa.
+11. `AppointmentService.create` revalida serviço, profissional, horário passado, bloqueio e conflito.
+12. Cliente é localizado por `establishmentId + phoneNormalized`, ou criado se ainda não existir naquele estabelecimento.
+13. Cliente bloqueado não agenda.
+14. Cliente novo ou com 2 ou mais faltas gera `PENDING_APPROVAL`; demais casos geram `CONFIRMED`.
+15. O cliente vê a tela de sucesso por `publicToken`, com status em português e orientação sobre o próximo passo.
 
 ## Separação por estabelecimento
 

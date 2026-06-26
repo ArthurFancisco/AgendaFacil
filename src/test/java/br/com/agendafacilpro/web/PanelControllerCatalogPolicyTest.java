@@ -57,7 +57,7 @@ class PanelControllerCatalogPolicyTest {
 
         String route = controller.deleteService(2L, redirect);
 
-        assertThat(route).isEqualTo("redirect:/panel#configuracoes");
+        assertThat(route).isEqualTo("redirect:/panel/services");
         verify(services).delete(service);
     }
 
@@ -84,7 +84,7 @@ class PanelControllerCatalogPolicyTest {
 
         String route = controller.deleteProfessional(3L, redirect);
 
-        assertThat(route).isEqualTo("redirect:/panel#configuracoes");
+        assertThat(route).isEqualTo("redirect:/panel/professionals");
         verify(professionals).delete(professional);
     }
 

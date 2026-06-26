@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Seus dados · AgendaFácil Pro</title>
+  <title>Confirmar agendamento · AgendaFácil Pro</title>
   <link rel="stylesheet" th:href="@{/css/app.css}">
 </head>
 <body class="public">
@@ -11,8 +11,8 @@
   <nav class="booking-stepper" aria-label="Etapas do agendamento">
     <div class="stepper-mobile-summary">
       <div>
-        <span th:text="|Etapa ${currentStep} de 6|">Etapa 5 de 6</span>
-        <strong th:text="${currentStepLabel}">Dados</strong>
+        <span th:text="|Etapa ${currentStep} de 6|">Etapa 6 de 6</span>
+        <strong th:text="${currentStepLabel}">Confirmação</strong>
       </div>
       <span class="stepper-progress"><span th:style="|width: ${flowProgress}%|"></span></span>
     </div>
@@ -23,17 +23,12 @@
     </ol>
   </nav>
 
-  <a class="back" th:href="@{/agenda/{slug}/servicos/{serviceId}/profissionais/{professionalId}/horarios(slug=${establishment.slug},serviceId=${service.id},professionalId=${professional.id},date=${selectedDate})}">← Trocar horário</a>
-
   <section class="card">
-    <span class="eyebrow">Etapa 5 de 6</span>
-    <h1>Informe seus dados</h1>
-    <p class="muted">Use um WhatsApp válido para o estabelecimento conseguir falar com você.</p>
+    <span class="eyebrow">Etapa 6 de 6</span>
+    <h1>Revise antes de confirmar</h1>
+    <p class="muted">Confira os dados abaixo. O agendamento só será enviado depois que você tocar em confirmar.</p>
 
-    <div class="alert danger" th:if="${error}" th:text="${error}">Verifique os dados e tente novamente.</div>
-
-    <div class="booking-summary inline">
-      <span class="eyebrow">Resumo</span>
+    <div class="booking-summary inline review">
       <dl>
         <dt>Serviço</dt><dd th:text="${service.name}">Serviço</dd>
         <dt>Duração</dt><dd th:text="|${service.durationMinutes} min|">60 min</dd>
@@ -42,30 +37,25 @@
         <dt>Profissional</dt><dd th:text="${professional.name}">Profissional</dd>
         <dt>Data</dt><dd th:text="${#temporals.format(selectedDate,'dd/MM/yyyy')}">24/06/2026</dd>
         <dt>Horário</dt><dd th:text="${#temporals.format(selectedTime,'HH:mm')}">10:30</dd>
+        <dt>Nome</dt><dd th:text="${customerName}">Cliente</dd>
+        <dt>WhatsApp</dt><dd th:text="${customerPhone}">(17) 99999-9999</dd>
       </dl>
     </div>
 
-    <form th:action="@{/agenda/{slug}/revisar(slug=${establishment.slug})}" method="post" class="form">
+    <form th:action="@{/agenda/{slug}/confirmar(slug=${establishment.slug})}" method="post" class="form">
       <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
       <input type="hidden" name="serviceId" th:value="${service.id}">
       <input type="hidden" name="professionalId" th:value="${professional.id}">
       <input type="hidden" name="date" th:value="${selectedDate}">
       <input type="hidden" name="time" th:value="${selectedTime}">
+      <input type="hidden" name="customerName" th:value="${customerName}">
+      <input type="hidden" name="customerPhone" th:value="${customerPhone}">
+      <input type="hidden" name="website" th:value="${website}">
 
-      <label>Seu nome
-        <input name="customerName" th:value="${customerName}" placeholder="Ex: Ana Clara" minlength="2" maxlength="120" autocomplete="name" required>
-      </label>
-
-      <label>WhatsApp
-        <input name="customerPhone" th:value="${customerPhone}" placeholder="Ex: (17) 99999-9999" minlength="10" maxlength="20" autocomplete="tel" inputmode="tel" required>
-      </label>
-
-      <label class="hp">Site
-        <input name="website" tabindex="-1" autocomplete="off">
-      </label>
-
-      <div class="alert info">Você ainda vai revisar tudo antes de confirmar. Não precisa criar conta.</div>
-      <button class="btn primary full" type="submit">Revisar agendamento</button>
+      <div class="review-actions">
+        <button class="btn light" type="button" onclick="history.back()">Voltar e corrigir</button>
+        <button class="btn primary" type="submit">Confirmar agendamento</button>
+      </div>
     </form>
   </section>
 </main>

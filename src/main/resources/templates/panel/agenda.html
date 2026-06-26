@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agenda · AgendaFácil Pro</title>
+  <link rel="stylesheet" th:href="@{/css/app.css}">
+  <script defer th:src="@{/js/app.js}"></script>
+</head>
+
+<body class="admin-page">
+  <aside th:replace="~{panel/fragments :: sidebar(${activePage})}"></aside>
+
+  <main class="admin-main">
+    <header class="admin-header page-header">
+      <div>
+        <span class="eyebrow">Agenda visual</span>
+        <h1 class="page-title" th:text="${pageTitle}">Agenda</h1>
+        <p class="page-subtitle" th:text="${pageSubtitle}">Visualize o dia e a semana.</p>
+      </div>
+
+      <div class="header-actions">
+        <a class="btn primary" th:href="@{/panel/appointments}">Novo agendamento</a>
+        <a class="btn secondary" th:href="@{/panel/appointments}">Lista completa</a>
+      </div>
+    </header>
+
+    <div th:replace="~{panel/fragments :: flash}"></div>
+
+    <section class="admin-card">
+      <div class="section-title">
+        <div>
+          <span class="eyebrow">Próximos 7 dias</span>
+          <h2>Semana operacional</h2>
+        </div>
+        <p>Somente horários confirmados e pendentes aparecem neste quadro.</p>
+      </div>
+
+      <div class="status-legend">
+        <span class="badge confirmed">Confirmado</span>
+        <span class="badge pending">Pendente</span>
+        <span class="badge completed">Concluído</span>
+        <span class="badge noshow">Faltou</span>
+        <span class="badge cancelled">Cancelado</span>
+        <span class="badge expired">Expirado</span>
+      </div>
+
+      <div class="week-board">
+        <article class="day-column" th:each="day : ${dashboard.week}">
+          <header>
+            <div>
+              <strong th:text="${day.label}">Seg</strong>
+              <span th:text="${#temporals.format(day.date, 'dd/MM')}">24/06</span>
+            </div>
+            <small>
+              <span th:text="${#lists.size(day.appointments)}">0</span>
+              ativos
+            </small>
+          </header>
+
+          <div class="day-appointments">
+            <div class="week-appointment" th:each="appt : ${day.appointments}">
+              <div class="week-time">
+                <strong th:text="${#temporals.format(appt.startAt, 'HH:mm')}">09:00</strong>
+                <span>-</span>
+                <strong th:text="${#temporals.format(appt.endAt, 'HH:mm')}">10:00</strong>
+              </div>
+
+              <span th:text="${appt.customer.name}">Cliente</span>
+              <small>
+                <span th:text="${appt.serviceItem.name}">Serviço</span>
+                <span> · </span>
+                <span th:text="${appt.professional.name}">Profissional</span>
+              </small>
+
+              <em th:class="${@view.badgeClass(appt.status)}" th:text="${@view.statusLabel(appt.status)}">
+                Status
+              </em>
+            </div>
+
+            <div class="empty-state compact" th:if="${#lists.isEmpty(day.appointments)}">
+              Sem horários ativos
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="admin-card">
+      <div class="section-title">
+        <div>
+          <span class="eyebrow">Filtros</span>
+          <h2>Agenda filtrada</h2>
+        </div>
+        <p>Filtre por data, profissional e status para entender o período rapidamente.</p>
+      </div>
+
+      <form class="filter-form" th:action="@{/panel/agenda}" method="get">
+        <label>
+          De
+          <input name="startDate" type="date" th:value="${filter.startDate}">
+        </label>
+
+        <label>
+          Até
+          <input name="endDate" type="date" th:value="${filter.endDate}">
+        </label>
+
+        <label>
+          Profissional
+          <select name="professionalId">
+            <option value="">Todos</option>
+            <option th:each="p : ${professionals}" th:value="${p.id}" th:selected="${filter.professionalId != null and filter.professionalId == p.id}" th:text="${p.name}">
+              Profissional
+            </option>
+          </select>
+        </label>
+
+        <label>
+          Status
+          <select name="status">
+            <option value="">Todos</option>
+            <option th:each="s : ${statuses}" th:value="${s}" th:selected="${filter.status != null and filter.status == s}" th:text="${@view.statusLabel(s)}">
+              Status
+            </option>
+          </select>
+        </label>
+
+        <div class="filter-actions">
+          <button class="btn primary" type="submit">Filtrar</button>
+          <a class="btn secondary" th:href="@{/panel/agenda(startDate=${todayDate},endDate=${todayDate})}">Hoje</a>
+          <a class="btn secondary" th:href="@{/panel/agenda(startDate=${todayDate},endDate=${next7Date})}">Próximos 7 dias</a>
+        </div>
+      </form>
+
+      <div class="table-wrap" th:if="${not #lists.isEmpty(dashboard.agenda)}">
+        <table class="admin-table data-table">
+          <thead>
+          <tr>
+            <th>Data</th>
+            <th>Horário</th>
+            <th>Cliente</th>
+            <th>Serviço</th>
+            <th>Profissional</th>
+            <th>Status</th>
+          </tr>
+          </thead>
+          <tbody>
+          <tr th:each="appt : ${dashboard.agenda}" th:classappend="${@view.rowClass(appt.status)}">
+            <td th:text="${#temporals.format(appt.startAt, 'dd/MM/yyyy')}">24/06/2026</td>
+            <td>
+              <strong th:text="${#temporals.format(appt.startAt, 'HH:mm')}">09:00</strong>
+              <span>às</span>
+              <strong th:text="${#temporals.format(appt.endAt, 'HH:mm')}">10:00</strong>
+            </td>
+            <td th:text="${appt.customer.name}">Cliente</td>
+            <td th:text="${appt.serviceItem.name}">Serviço</td>
+            <td th:text="${appt.professional.name}">Profissional</td>
+            <td><span th:class="${@view.badgeClass(appt.status)}" th:text="${@view.statusLabel(appt.status)}">Status</span></td>
+          </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="empty-state" th:if="${#lists.isEmpty(dashboard.agenda)}">
+        Nenhum agendamento encontrado para os filtros escolhidos.
+      </div>
+    </section>
+  </main>
+</body>
+</html>

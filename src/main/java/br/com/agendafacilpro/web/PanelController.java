@@ -59,32 +59,109 @@ public class PanelController {
     }
 
     @GetMapping("/panel")
-    String panel(@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-                 @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
-                 @RequestParam(required = false) Long professionalId,
-                 @RequestParam(required = false) AppointmentStatus status,
-                 @RequestParam(required = false) String customerPhone,
-                 Model model) {
-        AppUser u = current.user();
+    String panel(Model model) {
+        AppUser u = shell(model, "dashboard", "Dashboard", "Resumo inteligente para acompanhar hoje, pendências e próximos horários.");
         Long est = u.getEstablishment().getId();
-        LocalDate selectedStart = startDate == null ? LocalDate.now() : startDate;
-        DashboardService.Filter filter = new DashboardService.Filter(selectedStart, endDate == null ? selectedStart : endDate, professionalId, status);
-        model.addAttribute("user", u);
-        model.addAttribute("establishment", u.getEstablishment());
+        model.addAttribute("dashboard", dashboard.data(est));
+        model.addAttribute("todayDate", LocalDate.now());
+        return "panel/dashboard";
+    }
+
+    @GetMapping("/panel/agenda")
+    String agenda(@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+                  @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+                  @RequestParam(required = false) Long professionalId,
+                  @RequestParam(required = false) AppointmentStatus status,
+                  Model model) {
+        AppUser u = shell(model, "agenda", "Agenda", "Visualize o dia e a semana com filtros por profissional e status.");
+        Long est = u.getEstablishment().getId();
+        DashboardService.Filter filter = filter(startDate, endDate, professionalId, status);
         model.addAttribute("dashboard", dashboard.data(est, filter));
-        model.addAttribute("services", services.findByEstablishmentIdOrderByActiveDescSortOrderAscNameAsc(est));
-        model.addAttribute("activeServices", services.findByEstablishmentIdAndActiveTrueOrderBySortOrderAscNameAsc(est));
         model.addAttribute("professionals", professionals.findByEstablishmentIdOrderByActiveDescSortOrderAscNameAsc(est));
+        model.addAttribute("statuses", AppointmentStatus.values());
+        model.addAttribute("filter", filter);
+        model.addAttribute("todayDate", LocalDate.now());
+        model.addAttribute("next7Date", LocalDate.now().plusDays(6));
+        return "panel/agenda";
+    }
+
+    @GetMapping("/panel/appointments")
+    String appointments(@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+                        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+                        @RequestParam(required = false) Long professionalId,
+                        @RequestParam(required = false) AppointmentStatus status,
+                        @RequestParam(required = false) String customerPhone,
+                        Model model) {
+        AppUser u = shell(model, "appointments", "Agendamentos", "Lista operacional com filtros e ações conforme o status.");
+        Long est = u.getEstablishment().getId();
+        DashboardService.Filter filter = filter(startDate, endDate, professionalId, status);
+        model.addAttribute("dashboard", dashboard.data(est, filter));
+        model.addAttribute("activeServices", services.findByEstablishmentIdAndActiveTrueOrderBySortOrderAscNameAsc(est));
         model.addAttribute("activeProfessionals", professionals.findByEstablishmentIdAndActiveTrueOrderBySortOrderAscNameAsc(est));
-        model.addAttribute("timeBlocks", blocks.findTop20ByEstablishmentIdOrderByStartAtDesc(est));
+        model.addAttribute("professionals", professionals.findByEstablishmentIdOrderByActiveDescSortOrderAscNameAsc(est));
         model.addAttribute("statuses", AppointmentStatus.values());
         model.addAttribute("filter", filter);
         model.addAttribute("todayDate", LocalDate.now());
         model.addAttribute("next7Date", LocalDate.now().plusDays(6));
         model.addAttribute("customerLookupPhone", customerPhone);
         model.addAttribute("customerLookup", lookupCustomer(est, customerPhone));
+        return "panel/appointments";
+    }
+
+    @GetMapping("/panel/customers")
+    String customers(@RequestParam(required = false) String q, Model model) {
+        AppUser u = shell(model, "customers", "Clientes", "Consulte clientes por nome ou telefone e acompanhe faltas.");
+        Long est = u.getEstablishment().getId();
+        model.addAttribute("customerQuery", q);
+        model.addAttribute("customers", customerList(est, q));
+        return "panel/customers";
+    }
+
+    @GetMapping("/panel/services")
+    String services(@RequestParam(required = false) String q, Model model) {
+        AppUser u = shell(model, "services", "Serviços", "Gerencie o catálogo público sem poluir o dashboard.");
+        Long est = u.getEstablishment().getId();
+        model.addAttribute("serviceQuery", q);
+        model.addAttribute("services", serviceList(est, q));
+        return "panel/services";
+    }
+
+    @GetMapping("/panel/professionals")
+    String professionals(@RequestParam(required = false) String q, Model model) {
+        AppUser u = shell(model, "professionals", "Profissionais", "Organize equipe, WhatsApp e serviços realizados.");
+        Long est = u.getEstablishment().getId();
+        model.addAttribute("professionalQuery", q);
+        model.addAttribute("professionals", professionalList(est, q));
+        model.addAttribute("activeServices", services.findByEstablishmentIdAndActiveTrueOrderBySortOrderAscNameAsc(est));
+        return "panel/professionals";
+    }
+
+    @GetMapping("/panel/time-blocks")
+    String timeBlocks(@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date, Model model) {
+        AppUser u = shell(model, "blocks", "Bloqueios", "Reserve períodos em que a agenda online não deve aceitar horários.");
+        Long est = u.getEstablishment().getId();
+        LocalDate selected = date == null ? LocalDate.now() : date;
+        List<TimeBlock> timeBlocks = date == null
+                ? blocks.findTop20ByEstablishmentIdOrderByStartAtDesc(est)
+                : blocks.findByEstablishmentIdAndStartAtBetweenOrderByStartAtAsc(est, selected.atStartOfDay(), selected.plusDays(1).atStartOfDay());
+        model.addAttribute("timeBlocks", timeBlocks);
+        model.addAttribute("activeProfessionals", professionals.findByEstablishmentIdAndActiveTrueOrderBySortOrderAscNameAsc(est));
+        model.addAttribute("selectedDate", selected);
+        return "panel/time-blocks";
+    }
+
+    @GetMapping("/panel/settings")
+    String settings(Model model) {
+        AppUser u = shell(model, "settings", "Configurações", "Ajuste regras do agendamento online e da página pública.");
         model.addAttribute("settings", settingsService.forEstablishment(u.getEstablishment()));
-        return "panel/dashboard";
+        return "panel/settings";
+    }
+
+    @GetMapping("/panel/reports")
+    String reports(Model model) {
+        AppUser u = shell(model, "reports", "Relatórios", "Indicadores simples para acompanhar operação e faltas.");
+        model.addAttribute("reports", dashboard.reports(u.getEstablishment().getId()));
+        return "panel/reports";
     }
 
     @PostMapping("/panel/appointments/manual")
@@ -101,9 +178,9 @@ public class PanelController {
             AppUser user = current.user();
             appointments.createManual(user.getEstablishment(), user, new ManualAppointmentRequest(customerName, customerPhone, serviceId, professionalId, date, time, internalNote, forceBlockedCustomer));
             r.addFlashAttribute("success", "Novo agendamento confirmado. Esse horário ficou indisponível na agenda pública.");
-            return "redirect:/panel#agenda";
+            return "redirect:/panel/appointments";
         } catch (IllegalArgumentException | IllegalStateException ex) {
-            return panelError(r, ex.getMessage(), "novo-agendamento");
+            return panelError(r, ex.getMessage(), "/panel/appointments");
         }
     }
 
@@ -112,9 +189,9 @@ public class PanelController {
         try {
             appointments.approve(id, current.establishmentId(), current.user());
             r.addFlashAttribute("success", "Reserva aprovada e horário confirmado.");
-            return "redirect:/panel";
+            return "redirect:/panel/appointments";
         } catch (IllegalArgumentException | IllegalStateException ex) {
-            return panelError(r, ex.getMessage(), "pendentes");
+            return panelError(r, ex.getMessage(), "/panel/appointments");
         }
     }
 
@@ -123,9 +200,9 @@ public class PanelController {
         try {
             appointments.reject(id, current.establishmentId(), current.user());
             r.addFlashAttribute("success", "Reserva recusada. O horário voltou a ficar disponível.");
-            return "redirect:/panel";
+            return "redirect:/panel/appointments";
         } catch (IllegalArgumentException | IllegalStateException ex) {
-            return panelError(r, ex.getMessage(), "pendentes");
+            return panelError(r, ex.getMessage(), "/panel/appointments");
         }
     }
 
@@ -134,9 +211,9 @@ public class PanelController {
         try {
             appointments.complete(id, current.establishmentId(), current.user());
             r.addFlashAttribute("success", "Atendimento marcado como concluído.");
-            return "redirect:/panel";
+            return "redirect:/panel/appointments";
         } catch (IllegalArgumentException | IllegalStateException ex) {
-            return panelError(r, ex.getMessage(), "agenda");
+            return panelError(r, ex.getMessage(), "/panel/appointments");
         }
     }
 
@@ -145,9 +222,9 @@ public class PanelController {
         try {
             appointments.noShow(id, current.establishmentId(), current.user());
             r.addFlashAttribute("success", "Falta registrada no histórico do cliente.");
-            return "redirect:/panel";
+            return "redirect:/panel/appointments";
         } catch (IllegalArgumentException | IllegalStateException ex) {
-            return panelError(r, ex.getMessage(), "agenda");
+            return panelError(r, ex.getMessage(), "/panel/appointments");
         }
     }
 
@@ -156,9 +233,9 @@ public class PanelController {
         try {
             appointments.cancel(id, current.establishmentId(), reason, current.user());
             r.addFlashAttribute("success", "Agendamento cancelado sem apagar o histórico.");
-            return "redirect:/panel";
+            return "redirect:/panel/appointments";
         } catch (IllegalArgumentException | IllegalStateException ex) {
-            return panelError(r, ex.getMessage(), "agenda");
+            return panelError(r, ex.getMessage(), "/panel/appointments");
         }
     }
 
@@ -170,10 +247,10 @@ public class PanelController {
             s.setEstablishment(u.getEstablishment());
             applyServiceFields(s, name, durationMinutes, price, description);
             services.save(s);
-            r.addFlashAttribute("success", "Serviço cadastrado.");
-            return "redirect:/panel#configuracoes";
+            r.addFlashAttribute("success", "Serviço salvo com sucesso.");
+            return "redirect:/panel/services";
         } catch (IllegalArgumentException | IllegalStateException ex) {
-            return panelError(r, ex.getMessage(), "configuracoes");
+            return panelError(r, ex.getMessage(), "/panel/services");
         }
     }
 
@@ -186,9 +263,9 @@ public class PanelController {
             s.setActive(active);
             services.save(s);
             r.addFlashAttribute("success", "Serviço atualizado com sucesso.");
-            return "redirect:/panel#configuracoes";
+            return "redirect:/panel/services";
         } catch (IllegalArgumentException | IllegalStateException ex) {
-            return panelError(r, ex.getMessage(), "configuracoes");
+            return panelError(r, ex.getMessage(), "/panel/services");
         }
     }
 
@@ -199,10 +276,10 @@ public class PanelController {
                     .orElseThrow(() -> new IllegalArgumentException("Serviço não encontrado para este estabelecimento."));
             s.setActive(!s.isActive());
             services.save(s);
-            r.addFlashAttribute("success", s.isActive() ? "Serviço reativado." : "Serviço pausado.");
-            return "redirect:/panel#configuracoes";
+            r.addFlashAttribute("success", s.isActive() ? "Serviço reativado." : "Serviço arquivado.");
+            return "redirect:/panel/services";
         } catch (IllegalArgumentException | IllegalStateException ex) {
-            return panelError(r, ex.getMessage(), "configuracoes");
+            return panelError(r, ex.getMessage(), "/panel/services");
         }
     }
 
@@ -215,14 +292,14 @@ public class PanelController {
             if (appointmentsCountByService(est, id) > 0) {
                 s.setActive(false);
                 services.save(s);
-                r.addFlashAttribute("error", "Este serviço já possui histórico e por isso não pode ser excluído permanentemente.");
+                r.addFlashAttribute("error", "Este item já possui histórico e foi arquivado.");
             } else {
                 services.delete(s);
                 r.addFlashAttribute("success", "Serviço excluído com sucesso.");
             }
-            return "redirect:/panel#configuracoes";
+            return "redirect:/panel/services";
         } catch (IllegalArgumentException | IllegalStateException ex) {
-            return panelError(r, ex.getMessage(), "configuracoes");
+            return panelError(r, ex.getMessage(), "/panel/services");
         }
     }
 
@@ -234,10 +311,10 @@ public class PanelController {
             p.setEstablishment(u.getEstablishment());
             applyProfessionalFields(p, name, bio, whatsapp, true, serviceIds, u.getEstablishment().getId());
             professionals.save(p);
-            r.addFlashAttribute("success", "Profissional cadastrado.");
-            return "redirect:/panel#configuracoes";
+            r.addFlashAttribute("success", "Profissional salvo com sucesso.");
+            return "redirect:/panel/professionals";
         } catch (IllegalArgumentException | IllegalStateException ex) {
-            return panelError(r, ex.getMessage(), "configuracoes");
+            return panelError(r, ex.getMessage(), "/panel/professionals");
         }
     }
 
@@ -250,9 +327,9 @@ public class PanelController {
             applyProfessionalFields(p, name, bio, whatsapp, active, serviceIds, est);
             professionals.save(p);
             r.addFlashAttribute("success", "Profissional atualizado com sucesso.");
-            return "redirect:/panel#configuracoes";
+            return "redirect:/panel/professionals";
         } catch (IllegalArgumentException | IllegalStateException ex) {
-            return panelError(r, ex.getMessage(), "configuracoes");
+            return panelError(r, ex.getMessage(), "/panel/professionals");
         }
     }
 
@@ -266,10 +343,10 @@ public class PanelController {
             }
             p.setActive(!p.isActive());
             professionals.save(p);
-            r.addFlashAttribute("success", p.isActive() ? "Profissional reativado." : "Profissional pausado.");
-            return "redirect:/panel#configuracoes";
+            r.addFlashAttribute("success", p.isActive() ? "Profissional reativado." : "Profissional arquivado.");
+            return "redirect:/panel/professionals";
         } catch (IllegalArgumentException | IllegalStateException ex) {
-            return panelError(r, ex.getMessage(), "configuracoes");
+            return panelError(r, ex.getMessage(), "/panel/professionals");
         }
     }
 
@@ -282,14 +359,14 @@ public class PanelController {
             if (appointmentsCountByProfessional(est, id) > 0) {
                 p.setActive(false);
                 professionals.save(p);
-                r.addFlashAttribute("error", "Este profissional já possui histórico e por isso não pode ser excluído permanentemente.");
+                r.addFlashAttribute("error", "Este item já possui histórico e foi arquivado.");
             } else {
                 professionals.delete(p);
                 r.addFlashAttribute("success", "Profissional excluído com sucesso.");
             }
-            return "redirect:/panel#configuracoes";
+            return "redirect:/panel/professionals";
         } catch (IllegalArgumentException | IllegalStateException ex) {
-            return panelError(r, ex.getMessage(), "configuracoes");
+            return panelError(r, ex.getMessage(), "/panel/professionals");
         }
     }
 
@@ -314,10 +391,10 @@ public class PanelController {
                         .orElseThrow(() -> new IllegalArgumentException("Profissional não encontrado para este estabelecimento.")));
             }
             blocks.save(b);
-            r.addFlashAttribute("success", "Bloqueio de horário criado.");
-            return "redirect:/panel#configuracoes";
+            r.addFlashAttribute("success", "Bloqueio criado com sucesso.");
+            return "redirect:/panel/time-blocks";
         } catch (IllegalArgumentException | IllegalStateException ex) {
-            return panelError(r, ex.getMessage(), "configuracoes");
+            return panelError(r, ex.getMessage(), "/panel/time-blocks");
         }
     }
 
@@ -329,9 +406,9 @@ public class PanelController {
             b.setActive(!b.isActive());
             blocks.save(b);
             r.addFlashAttribute("success", b.isActive() ? "Bloqueio reativado." : "Bloqueio pausado.");
-            return "redirect:/panel#configuracoes";
+            return "redirect:/panel/time-blocks";
         } catch (IllegalArgumentException | IllegalStateException ex) {
-            return panelError(r, ex.getMessage(), "configuracoes");
+            return panelError(r, ex.getMessage(), "/panel/time-blocks");
         }
     }
 
@@ -360,11 +437,26 @@ public class PanelController {
                     longServiceManualApprovalMinutes,
                     showPricesOnPublicPage
             ));
-            r.addFlashAttribute("success", "Configurações salvas para este estabelecimento.");
-            return "redirect:/panel#configuracoes";
+            r.addFlashAttribute("success", "Configurações salvas com sucesso.");
+            return "redirect:/panel/settings";
         } catch (IllegalArgumentException | IllegalStateException ex) {
-            return panelError(r, ex.getMessage(), "configuracoes");
+            return panelError(r, ex.getMessage(), "/panel/settings");
         }
+    }
+
+    private AppUser shell(Model model, String activePage, String pageTitle, String pageSubtitle) {
+        AppUser u = current.user();
+        model.addAttribute("user", u);
+        model.addAttribute("establishment", u.getEstablishment());
+        model.addAttribute("activePage", activePage);
+        model.addAttribute("pageTitle", pageTitle);
+        model.addAttribute("pageSubtitle", pageSubtitle);
+        return u;
+    }
+
+    private DashboardService.Filter filter(LocalDate startDate, LocalDate endDate, Long professionalId, AppointmentStatus status) {
+        LocalDate selectedStart = startDate == null ? LocalDate.now() : startDate;
+        return new DashboardService.Filter(selectedStart, endDate == null ? selectedStart : endDate, professionalId, status);
     }
 
     private Customer lookupCustomer(Long establishmentId, String phone) {
@@ -379,9 +471,46 @@ public class PanelController {
         }
     }
 
-    private String panelError(RedirectAttributes r, String message, String anchor) {
+    private List<Customer> customerList(Long establishmentId, String query) {
+        if (query == null || query.isBlank()) {
+            return customers.findByEstablishmentIdOrderByUpdatedAtDesc(establishmentId);
+        }
+        String text = query.trim().toLowerCase();
+        String digits = query.replaceAll("\\D", "");
+        if (digits.isBlank()) {
+            digits = "__sem_telefone__";
+        }
+        return customers.searchByEstablishment(establishmentId, text, digits);
+    }
+
+    private List<ServiceItem> serviceList(Long establishmentId, String query) {
+        List<ServiceItem> all = services.findByEstablishmentIdOrderByActiveDescSortOrderAscNameAsc(establishmentId);
+        if (query == null || query.isBlank()) {
+            return all;
+        }
+        String text = query.trim().toLowerCase();
+        return all.stream()
+                .filter(service -> service.getName().toLowerCase().contains(text)
+                        || service.getDescription() != null && service.getDescription().toLowerCase().contains(text))
+                .toList();
+    }
+
+    private List<Professional> professionalList(Long establishmentId, String query) {
+        List<Professional> all = professionals.findByEstablishmentIdOrderByActiveDescSortOrderAscNameAsc(establishmentId);
+        if (query == null || query.isBlank()) {
+            return all;
+        }
+        String text = query.trim().toLowerCase();
+        return all.stream()
+                .filter(professional -> professional.getName().toLowerCase().contains(text)
+                        || professional.getWhatsapp() != null && professional.getWhatsapp().toLowerCase().contains(text)
+                        || professional.getServices().stream().anyMatch(service -> service.getName().toLowerCase().contains(text)))
+                .toList();
+    }
+
+    private String panelError(RedirectAttributes r, String message, String path) {
         r.addFlashAttribute("error", message == null || message.isBlank() ? "Não foi possível concluir essa ação." : message);
-        return "redirect:/panel#" + anchor;
+        return "redirect:" + path;
     }
 
     private void applyServiceFields(ServiceItem service, String name, int durationMinutes, BigDecimal price, String description) {

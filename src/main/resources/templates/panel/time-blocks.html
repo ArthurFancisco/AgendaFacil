@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bloqueios · AgendaFácil Pro</title>
+  <link rel="stylesheet" th:href="@{/css/app.css}">
+  <script defer th:src="@{/js/app.js}"></script>
+</head>
+
+<body class="admin-page">
+  <aside th:replace="~{panel/fragments :: sidebar(${activePage})}"></aside>
+
+  <main class="admin-main">
+    <header class="admin-header page-header">
+      <div>
+        <span class="eyebrow">Agenda online</span>
+        <h1 class="page-title" th:text="${pageTitle}">Bloqueios</h1>
+        <p class="page-subtitle" th:text="${pageSubtitle}">Reserve períodos indisponíveis.</p>
+      </div>
+
+      <div class="header-actions">
+        <button class="btn primary" type="button" data-modal-open="newBlock">Novo bloqueio</button>
+      </div>
+    </header>
+
+    <div th:replace="~{panel/fragments :: flash}"></div>
+
+    <section class="admin-card">
+      <div class="section-title">
+        <div>
+          <span class="eyebrow">Filtros</span>
+          <h2>Bloqueios de horário</h2>
+        </div>
+        <form class="inline-search" th:action="@{/panel/time-blocks}" method="get">
+          <input name="date" type="date" th:value="${selectedDate}">
+          <button class="btn secondary" type="submit">Filtrar</button>
+        </form>
+      </div>
+
+      <div class="table-wrap" th:if="${not #lists.isEmpty(timeBlocks)}">
+        <table class="admin-table data-table">
+          <thead>
+          <tr>
+            <th>Bloqueio</th>
+            <th>Período</th>
+            <th>Profissional</th>
+            <th>Motivo</th>
+            <th>Status</th>
+            <th>Ações</th>
+          </tr>
+          </thead>
+          <tbody>
+          <tr th:each="b : ${timeBlocks}">
+            <td><strong th:text="${b.title}">Bloqueio</strong></td>
+            <td>
+              <strong th:text="${#temporals.format(b.startAt, 'dd/MM HH:mm')}">24/06 12:00</strong>
+              <span>até</span>
+              <strong th:text="${#temporals.format(b.endAt, 'dd/MM HH:mm')}">24/06 13:00</strong>
+            </td>
+            <td th:text="${b.professional != null ? b.professional.name : 'Todos'}">Todos</td>
+            <td th:text="${b.reason != null and !#strings.isEmpty(b.reason) ? b.reason : '-'}">-</td>
+            <td><span th:class="${b.active ? 'badge completed' : 'badge muted'}" th:text="${b.active ? 'Ativo' : 'Pausado'}">Ativo</span></td>
+            <td>
+              <form th:action="@{/panel/time-blocks/{id}/toggle(id=${b.id})}" method="post">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                <button class="btn small secondary" type="submit" th:text="${b.active ? 'Pausar' : 'Reativar'}">Pausar</button>
+              </form>
+            </td>
+          </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="empty-state" th:if="${#lists.isEmpty(timeBlocks)}">
+        Nenhum bloqueio encontrado para o período.
+      </div>
+    </section>
+
+    <dialog class="modal" id="newBlock" aria-labelledby="newBlockTitle">
+      <form method="dialog" class="modal-close-form">
+        <button class="modal-close" type="submit" aria-label="Fechar">×</button>
+      </form>
+      <div class="modal-header">
+        <span class="eyebrow">Novo</span>
+        <h2 id="newBlockTitle">Novo bloqueio</h2>
+        <p>Use para almoço, reunião, manutenção ou ausência de profissional.</p>
+      </div>
+      <form class="admin-form" th:action="@{/panel/time-blocks}" method="post">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+        <label>
+          Título
+          <input name="title" placeholder="Ex: Almoço, reunião, manutenção" required>
+        </label>
+        <label>
+          Profissional
+          <select name="professionalId">
+            <option value="">Todos os profissionais</option>
+            <option th:each="p : ${activeProfessionals}" th:value="${p.id}" th:text="${p.name}">
+              Profissional
+            </option>
+          </select>
+        </label>
+        <div class="form-row">
+          <label>
+            Início
+            <input name="startAt" type="datetime-local" required>
+          </label>
+          <label>
+            Fim
+            <input name="endAt" type="datetime-local" required>
+          </label>
+        </div>
+        <label>
+          Motivo
+          <input name="reason" placeholder="Motivo opcional">
+        </label>
+        <div class="modal-actions">
+          <button class="btn secondary" type="button" data-modal-close>Cancelar</button>
+          <button class="btn primary" type="submit">Criar bloqueio</button>
+        </div>
+      </form>
+    </dialog>
+  </main>
+</body>
+</html>

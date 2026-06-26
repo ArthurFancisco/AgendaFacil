@@ -3,28 +3,51 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title th:text="${establishment.name} + ' · AgendaFácil Pro'">AgendaFácil</title>
+  <title th:text="${establishment.name} + ' · AgendaFácil Pro'">AgendaFácil Pro</title>
   <link rel="stylesheet" th:href="@{/css/app.css}">
 </head>
 <body class="public">
 <main class="shell">
-  <section class="hero">
+  <nav class="booking-stepper" aria-label="Etapas do agendamento">
+    <div class="stepper-mobile-summary">
+      <div>
+        <span th:text="|Etapa ${currentStep} de 6|">Etapa 1 de 6</span>
+        <strong th:text="${currentStepLabel}">Serviço</strong>
+      </div>
+      <span class="stepper-progress"><span th:style="|width: ${flowProgress}%|"></span></span>
+    </div>
+    <ol>
+      <li th:each="step : ${flowSteps}" th:classappend="${step.number < currentStep ? ' done' : (step.number == currentStep ? ' active' : '')}">
+        <span th:text="${step.number}">1</span><b th:text="${step.label}">Serviço</b>
+      </li>
+    </ol>
+  </nav>
+
+  <section class="hero public-hero">
     <span class="eyebrow">Agendamento online</span>
-    <h1 th:text="${establishment.name}">Bella Estética Studio</h1>
+    <h1 th:text="${establishment.name}">AgendaFácil Demo</h1>
     <p th:text="${establishment.description}">Escolha um serviço e veja os horários disponíveis.</p>
-    <b th:text="${establishment.city}">Fernandópolis-SP</b>
+    <b th:text="${establishment.city}">Cidade</b>
   </section>
 
   <section class="card">
-    <h2>O que você quer agendar?</h2>
-    <p class="muted">Escolha o serviço. Depois você seleciona a pessoa, o dia e o horário.</p>
+    <div class="section-title">
+      <div>
+        <span class="eyebrow">Etapa 1 de 6</span>
+        <h2>Escolha o serviço que deseja agendar</h2>
+      </div>
+      <p>Você poderá escolher o profissional na próxima etapa.</p>
+    </div>
 
-    <div class="grid">
-      <a class="choice" th:each="service : ${services}" th:href="@{/agenda/{slug}/servicos/{serviceId}/profissionais(slug=${establishment.slug},serviceId=${service.id})}">
+    <div class="grid service-grid">
+      <a class="choice service-choice" th:each="service : ${services}" th:href="@{/agenda/{slug}/servicos/{serviceId}/profissionais(slug=${establishment.slug},serviceId=${service.id})}">
         <strong th:text="${service.name}">Serviço</strong>
-        <span th:text="${service.description}">Descrição</span>
-        <small><span th:text="${service.durationMinutes}">60</span> min</small>
-        <small th:if="${settings.showPricesOnPublicPage and service.price != null}" th:text="|R$ ${#numbers.formatDecimal(service.price, 1, 'POINT', 2, 'COMMA')}|">R$ 80,00</small>
+        <span th:text="${service.description ?: 'Atendimento com horário marcado.'}">Descrição curta</span>
+        <small>Duração aproximada: <b th:text="${service.durationMinutes}">60</b> min</small>
+        <small th:if="${settings.showPricesOnPublicPage and service.price != null}">
+          Valor: <b th:text="|R$ ${#numbers.formatDecimal(service.price, 1, 'POINT', 2, 'COMMA')}|">R$ 80,00</b>
+        </small>
+        <em>Escolher serviço</em>
       </a>
     </div>
 

@@ -148,6 +148,13 @@ As configuracoes nunca mudam a identidade do cliente: telefone normalizado + est
 - O slot é recusado se estiver no passado, fora da grade, bloqueado por `TimeBlock`, em conflito com agendamento bloqueante ou se o serviço não couber antes do fim do expediente.
 - Mensagem padrão para horário manipulado ou indisponível: "Esse horário não está disponível para este serviço."
 
+## Confirmação antes de salvar
+
+- A etapa de dados não salva o agendamento.
+- O POST `/agenda/{slug}/revisar` revalida o slot e exibe uma tela de revisão com serviço, duração, preço quando habilitado, profissional, data, horário, nome e WhatsApp.
+- O agendamento só é persistido no POST final `/agenda/{slug}/confirmar`.
+- Se a validação final falhar por concorrência ou dado inválido, o sistema volta para a etapa de dados com mensagem humana sempre que possível.
+
 ## Conflito por duração real
 
 - O sistema sempre compara intervalos completos, não apenas a hora inicial.
