@@ -67,6 +67,28 @@ class PublicBookingControllerFlowTest {
         assertThat(appointments.created).isEqualTo(1);
     }
 
+    @Test
+    @SuppressWarnings("unchecked")
+    void slotsExposeAtMostThreeDistinctSuggestions() {
+        ExtendedModelMap model = new ExtendedModelMap();
+
+        String view = controller.slots(
+                "agenda-demo",
+                2L,
+                3L,
+                LocalDate.now().plusDays(1),
+                model
+        );
+
+        assertThat(view).isEqualTo("public/slots");
+        assertThat((List<String>) model.get("slotSuggestions"))
+                .containsExactly(
+                        "Tente 10:00 com o mesmo profissional.",
+                        "Tente 11:00 com o mesmo profissional.",
+                        "Tente outra data."
+                );
+    }
+
     private static Establishment establishment() {
         Establishment establishment = new Establishment();
         establishment.setId(1L);
@@ -149,6 +171,52 @@ class PublicBookingControllerFlowTest {
             appointment.setPublicToken("public-token-123456789012");
             appointment.setStatus(AppointmentStatus.CONFIRMED);
             return appointment;
+        }
+
+        @Override
+        public List<AppointmentService.Slot> slots(Long est, Long serviceId, Long professionalId, LocalDate date) {
+            return List.of(
+                    new AppointmentService.Slot(
+                            LocalTime.of(8, 0),
+                            LocalTime.of(9, 0),
+                            false,
+                            AppointmentService.SlotReason.CONFLICT,
+                            "Indisponível no momento",
+                            "Tente 10:00 com o mesmo profissional."
+                    ),
+                    new AppointmentService.Slot(
+                            LocalTime.of(8, 30),
+                            LocalTime.of(9, 30),
+                            false,
+                            AppointmentService.SlotReason.CONFLICT,
+                            "Indisponível no momento",
+                            "Tente 10:00 com o mesmo profissional."
+                    ),
+                    new AppointmentService.Slot(
+                            LocalTime.of(9, 0),
+                            LocalTime.of(10, 0),
+                            false,
+                            AppointmentService.SlotReason.DOES_NOT_FIT,
+                            "Esse serviço não cabe nesse horário",
+                            "Tente 11:00 com o mesmo profissional."
+                    ),
+                    new AppointmentService.Slot(
+                            LocalTime.of(9, 30),
+                            LocalTime.of(10, 30),
+                            false,
+                            AppointmentService.SlotReason.CLOSED,
+                            "Fora do horário de atendimento",
+                            "Tente outra data."
+                    ),
+                    new AppointmentService.Slot(
+                            LocalTime.of(10, 0),
+                            LocalTime.of(11, 0),
+                            false,
+                            AppointmentService.SlotReason.BLOCKED,
+                            "Horário bloqueado",
+                            "Fale com o estabelecimento."
+                    )
+            );
         }
     }
 

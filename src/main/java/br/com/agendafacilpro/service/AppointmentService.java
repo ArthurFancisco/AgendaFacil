@@ -223,7 +223,9 @@ public class AppointmentService {
         Appointment appointment = appointments.findByEstablishmentIdAndPublicToken(est.getId(), publicToken)
                 .orElseThrow(() -> new IllegalArgumentException("Agendamento não encontrado."));
         String text = "Olá! Fiz uma solicitação de agendamento para " + appointment.getServiceItem().getName() + " com " + appointment.getProfessional().getName() + ".";
-        String url = "https://wa.me/" + est.getWhatsapp() + "?text=" + URLEncoder.encode(text, StandardCharsets.UTF_8);
+        String url = est.getWhatsapp() == null || est.getWhatsapp().isBlank()
+                ? null
+                : "https://wa.me/" + est.getWhatsapp() + "?text=" + URLEncoder.encode(text, StandardCharsets.UTF_8);
         String statusMessage = appointment.getStatus() == AppointmentStatus.CONFIRMED
                 ? "Seu horário foi confirmado."
                 : "Seu pedido foi recebido e aguarda confirmação do estabelecimento.";

@@ -32,8 +32,8 @@
         <dt>Serviço</dt><dd th:text="${service.name}">Ainda não escolhido</dd>
         <dt>Duração</dt><dd th:text="|${service.durationMinutes} min|">Ainda não escolhido</dd>
         <dt>Profissional</dt><dd th:text="${professional.name}">Ainda não escolhido</dd>
-        <dt>Data</dt><dd th:text="${#temporals.format(selectedDate,'dd/MM/yyyy')}">Ainda não escolhido</dd>
-        <dt>Horário</dt><dd>Ainda não escolhido</dd>
+        <dt>Data</dt><dd class="summary-important" th:text="${#temporals.format(selectedDate,'dd/MM/yyyy')}">Ainda não escolhido</dd>
+        <dt>Horário</dt><dd class="summary-empty">Ainda não escolhido</dd>
       </dl>
     </aside>
 
@@ -47,6 +47,16 @@
         <button class="btn light" type="submit">Atualizar data</button>
       </form>
 
+      <div class="slot-suggestions" th:if="${slotSuggestions != null and not #lists.isEmpty(slotSuggestions)}" aria-live="polite">
+        <div>
+          <span class="eyebrow">Sugestões</span>
+          <p>Alguns horários não estão disponíveis. Tente uma destas alternativas:</p>
+        </div>
+        <ul>
+          <li th:each="suggestion : ${slotSuggestions}" th:text="${suggestion}">Tente outro horário próximo.</li>
+        </ul>
+      </div>
+
       <div class="slots">
         <div th:each="slot : ${slots}">
           <a class="slot" th:if="${slot.available}" th:href="@{/agenda/{slug}/servicos/{serviceId}/profissionais/{professionalId}/dados(slug=${establishment.slug},serviceId=${service.id},professionalId=${professional.id},date=${selectedDate},time=${slot.start})}" th:aria-label="|Escolher horário ${#temporals.format(slot.start, 'HH:mm')}|">
@@ -58,7 +68,6 @@
           <div class="slot off" th:unless="${slot.available}" aria-disabled="true">
             <b th:text="${#temporals.format(slot.start, 'HH:mm')}">08:00</b>
             <span th:text="${slot.reasonLabel}">Indisponível no momento</span>
-            <small th:if="${slot.suggestionText}" th:text="${slot.suggestionText}">Tente outro horário.</small>
           </div>
         </div>
       </div>

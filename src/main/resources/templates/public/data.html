@@ -30,7 +30,7 @@
     <h1>Informe seus dados</h1>
     <p class="muted">Use um WhatsApp válido para o estabelecimento conseguir falar com você.</p>
 
-    <div class="alert danger" th:if="${error}" th:text="${error}">Verifique os dados e tente novamente.</div>
+    <div class="alert danger" th:if="${error}" th:text="${error}" role="alert">Verifique os dados e tente novamente.</div>
 
     <div class="booking-summary inline">
       <span class="eyebrow">Resumo</span>
@@ -40,8 +40,8 @@
         <dt th:if="${settings.showPricesOnPublicPage and service.price != null}">Valor</dt>
         <dd th:if="${settings.showPricesOnPublicPage and service.price != null}" th:text="|R$ ${#numbers.formatDecimal(service.price, 1, 'POINT', 2, 'COMMA')}|">R$ 80,00</dd>
         <dt>Profissional</dt><dd th:text="${professional.name}">Profissional</dd>
-        <dt>Data</dt><dd th:text="${#temporals.format(selectedDate,'dd/MM/yyyy')}">24/06/2026</dd>
-        <dt>Horário</dt><dd th:text="${#temporals.format(selectedTime,'HH:mm')}">10:30</dd>
+        <dt>Data</dt><dd class="summary-important" th:text="${#temporals.format(selectedDate,'dd/MM/yyyy')}">24/06/2026</dd>
+        <dt>Horário</dt><dd class="summary-important" th:text="${#temporals.format(selectedTime,'HH:mm')}">10:30</dd>
       </dl>
     </div>
 

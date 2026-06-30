@@ -35,8 +35,8 @@
         <dt th:if="${settings.showPricesOnPublicPage and service.price != null}">Valor</dt>
         <dd th:if="${settings.showPricesOnPublicPage and service.price != null}" th:text="|R$ ${#numbers.formatDecimal(service.price, 1, 'POINT', 2, 'COMMA')}|">R$ 80,00</dd>
         <dt>Profissional</dt><dd th:text="${professional.name}">Profissional</dd>
-        <dt>Data</dt><dd th:text="${#temporals.format(selectedDate,'dd/MM/yyyy')}">24/06/2026</dd>
-        <dt>Horário</dt><dd th:text="${#temporals.format(selectedTime,'HH:mm')}">10:30</dd>
+        <dt>Data</dt><dd class="summary-important" th:text="${#temporals.format(selectedDate,'dd/MM/yyyy')}">24/06/2026</dd>
+        <dt>Horário</dt><dd class="summary-important" th:text="${#temporals.format(selectedTime,'HH:mm')}">10:30</dd>
         <dt>Nome</dt><dd th:text="${customerName}">Cliente</dd>
         <dt>WhatsApp</dt><dd th:text="${customerPhone}">(17) 99999-9999</dd>
       </dl>

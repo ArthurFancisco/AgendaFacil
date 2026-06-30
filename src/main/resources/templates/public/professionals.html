@@ -33,9 +33,9 @@
         <dt>Duração</dt><dd th:text="|${service.durationMinutes} min|">Ainda não escolhido</dd>
         <dt th:if="${settings.showPricesOnPublicPage and service.price != null}">Valor</dt>
         <dd th:if="${settings.showPricesOnPublicPage and service.price != null}" th:text="|R$ ${#numbers.formatDecimal(service.price, 1, 'POINT', 2, 'COMMA')}|">Ainda não escolhido</dd>
-        <dt>Profissional</dt><dd>Ainda não escolhido</dd>
-        <dt>Data</dt><dd>Ainda não escolhido</dd>
-        <dt>Horário</dt><dd>Ainda não escolhido</dd>
+        <dt>Profissional</dt><dd class="summary-empty">Ainda não escolhido</dd>
+        <dt>Data</dt><dd class="summary-empty">Ainda não escolhido</dd>
+        <dt>Horário</dt><dd class="summary-empty">Ainda não escolhido</dd>
       </dl>
     </aside>
 

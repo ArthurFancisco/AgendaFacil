@@ -60,11 +60,13 @@ public class PublicBookingController {
     String slots(@PathVariable String slug, @PathVariable Long serviceId, @PathVariable Long professionalId, @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date, Model model) {
         Establishment e = catalog.establishment(slug);
         LocalDate selected = date == null ? LocalDate.now() : date;
+        List<AppointmentService.Slot> slots = appointments.slots(e.getId(), serviceId, professionalId, selected);
         model.addAttribute("establishment", e);
         model.addAttribute("service", catalog.service(serviceId, e.getId()));
         model.addAttribute("professional", catalog.professionalForService(professionalId, serviceId, e.getId()));
         model.addAttribute("selectedDate", selected);
-        model.addAttribute("slots", appointments.slots(e.getId(), serviceId, professionalId, selected));
+        model.addAttribute("slots", slots);
+        model.addAttribute("slotSuggestions", slotSuggestions(slots));
         model.addAttribute("settings", settings.forEstablishment(e));
         addFlow(model, 4);
         return "public/slots";
@@ -135,5 +137,14 @@ public class PublicBookingController {
                 .findFirst()
                 .orElse(""));
         model.addAttribute("flowProgress", currentStep * 100 / FLOW_STEPS.size());
+    }
+
+    private List<String> slotSuggestions(List<AppointmentService.Slot> slots) {
+        return slots.stream()
+                .map(AppointmentService.Slot::suggestionText)
+                .filter(text -> text != null && !text.isBlank())
+                .distinct()
+                .limit(3)
+                .toList();
     }
 }

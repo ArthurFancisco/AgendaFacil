@@ -34,14 +34,14 @@
         <dt>Estabelecimento</dt><dd th:text="${summary.establishment}">Estabelecimento</dd>
         <dt>Serviço</dt><dd th:text="${summary.service}">Serviço</dd>
         <dt>Profissional</dt><dd th:text="${summary.professional}">Profissional</dd>
-        <dt>Data</dt><dd th:text="${#temporals.format(summary.start,'dd/MM/yyyy')}">24/06/2026</dd>
-        <dt>Horário</dt><dd><span th:text="${#temporals.format(summary.start,'HH:mm')}">09:00</span> até <span th:text="${#temporals.format(summary.end,'HH:mm')}">10:00</span></dd>
+        <dt>Data</dt><dd class="summary-important" th:text="${#temporals.format(summary.start,'dd/MM/yyyy')}">24/06/2026</dd>
+        <dt>Horário</dt><dd class="summary-important"><span th:text="${#temporals.format(summary.start,'HH:mm')}">09:00</span> até <span th:text="${#temporals.format(summary.end,'HH:mm')}">10:00</span></dd>
         <dt>Cliente</dt><dd th:text="${summary.customer}">Cliente</dd>
       </dl>
     </div>
 
     <p class="success-actions">
-      <a class="btn primary" th:href="${summary.whatsappUrl}" target="_blank" rel="noopener">Chamar no WhatsApp</a>
+      <a class="btn primary" th:if="${summary.whatsappUrl != null}" th:href="${summary.whatsappUrl}" target="_blank" rel="noopener">Chamar no WhatsApp</a>
       <a class="btn light" th:href="@{/agenda/{slug}(slug=${summary.establishmentSlug})}">Voltar para a página</a>
     </p>
   </section>

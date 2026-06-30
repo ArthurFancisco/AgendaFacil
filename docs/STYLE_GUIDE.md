@@ -59,7 +59,13 @@ Status de agendamento devem usar badges sem mostrar o enum cru:
 
 ## Pagina Publica
 
-A jornada publica deve priorizar leitura em celular. O stepper fica compacto, com rolagem horizontal apenas em telas pequenas. A revisao antes de confirmar deve destacar servico, profissional, data, horario e dados do cliente sem criar conta para o cliente final.
+A jornada publica deve priorizar leitura em celular. O stepper deve ocupar pouco espaco: no desktop aparece em uma linha compacta; no mobile mostra "Etapa X de 6", nome da etapa e barra de progresso.
+
+O resumo do agendamento deve aparecer como apoio de decisao, nao como tabela pesada. Use destaque visual para data e horario, mostre "Ainda nao escolhido" quando faltar uma decisao e mantenha servico, duracao, preco, profissional, nome e WhatsApp quando esses dados existirem.
+
+Na tela de horarios, horarios disponiveis devem parecer botoes claros. Horarios indisponiveis ficam desabilitados com motivo simples. Sugestoes enviadas pelo back-end devem aparecer em bloco compacto, com no maximo tres mensagens, para nao poluir a grade.
+
+A tela de sucesso nao mostra ID interno. Ela exibe status em portugues, proximo passo e resumo. O botao de WhatsApp aparece apenas quando houver telefone do estabelecimento.
 
 ## Painel
 
@@ -77,7 +83,7 @@ A navegacao administrativa deve ficar separada por contexto:
 - Configuracoes: regras por grupos.
 - Relatorios: indicadores simples.
 
-O dashboard nao deve receber formularios grandes de cadastro. Cadastros simples podem abrir em modal; configuracoes extensas devem ficar em pagina propria.
+O dashboard nao deve receber formularios grandes de cadastro. Ele e uma visao geral com metricas, pendencias, agenda resumida e atalhos. Cadastros simples podem abrir em modal; configuracoes extensas devem ficar em pagina propria.
 
 ## Modais
 
@@ -87,6 +93,10 @@ Use modal apenas para tarefas curtas, como criar ou editar servico, profissional
 
 Todas as telas principais precisam funcionar em largura de celular. Cards empilham, tabelas podem rolar horizontalmente e botoes importantes ocupam largura total apenas quando isso evita quebra de texto.
 
+No painel, a sidebar vira navegacao empilhada/gradeada em telas menores. Tabelas usam rolagem horizontal controlada. A agenda semanal pode rolar lateralmente sem quebrar o conteudo.
+
 ## Acessibilidade
 
 Controles interativos devem ter foco visivel. Contraste entre texto e fundo deve ser suficiente para uso em ambientes reais de atendimento. Nao use cor como unico indicador quando houver decisao operacional importante.
+
+Mensagens de erro devem ficar em componentes de alerta com linguagem humana. Evite termos como payload, stacktrace, entidade ou enum cru. Status sempre devem passar por `AppointmentViewUtil`.

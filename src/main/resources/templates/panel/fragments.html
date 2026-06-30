@@ -35,11 +35,11 @@
 </aside>
 
 <div th:fragment="flash">
-  <div class="alert success" th:if="${success}" th:text="${success}">
+  <div class="alert success" th:if="${success}" th:text="${success}" role="status">
     Alteração realizada com sucesso.
   </div>
 
-  <div class="alert danger" th:if="${error}" th:text="${error}">
+  <div class="alert danger" th:if="${error}" th:text="${error}" role="alert">
     Não foi possível concluir essa ação.
   </div>
 </div>
