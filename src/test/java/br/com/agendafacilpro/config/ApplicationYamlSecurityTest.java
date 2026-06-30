@@ -15,5 +15,10 @@ class ApplicationYamlSecurityTest {
 
         assertThat(yaml).doesNotContain("postdba");
         assertThat(yaml).contains("password: ${DB_PASSWORD:}");
+        assertThat(yaml).contains("name: AGENDAFACIL_SESSION");
+        assertThat(yaml).contains("http-only: true");
+        assertThat(yaml).contains("same-site: strict");
+        assertThat(yaml).contains("on-profile: prod");
+        assertThat(yaml).contains("secure: true");
     }
 }

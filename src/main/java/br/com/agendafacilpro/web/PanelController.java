@@ -1,9 +1,6 @@
 package br.com.agendafacilpro.web;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -11,7 +8,9 @@ import java.util.Set;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -34,6 +33,10 @@ import br.com.agendafacilpro.service.EstablishmentSettingsForm;
 import br.com.agendafacilpro.service.EstablishmentSettingsService;
 import br.com.agendafacilpro.service.ManualAppointmentRequest;
 import br.com.agendafacilpro.util.PhoneNormalizer;
+import br.com.agendafacilpro.web.form.ProfessionalForm;
+import br.com.agendafacilpro.web.form.ServiceForm;
+import br.com.agendafacilpro.web.form.TimeBlockForm;
+import jakarta.validation.Valid;
 
 @Controller
 public class PanelController {
@@ -165,18 +168,13 @@ public class PanelController {
     }
 
     @PostMapping("/panel/appointments/manual")
-    String manual(@RequestParam String customerName,
-                  @RequestParam String customerPhone,
-                  @RequestParam Long serviceId,
-                  @RequestParam Long professionalId,
-                  @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
-                  @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime time,
-                  @RequestParam(required = false) String internalNote,
-                  @RequestParam(defaultValue = "false") boolean forceBlockedCustomer,
-                  RedirectAttributes r) {
+    String manual(@Valid @ModelAttribute ManualAppointmentRequest request, BindingResult binding, RedirectAttributes r) {
+        if (binding.hasErrors()) {
+            return panelError(r, bindingMessage(binding), "/panel/appointments");
+        }
         try {
             AppUser user = current.user();
-            appointments.createManual(user.getEstablishment(), user, new ManualAppointmentRequest(customerName, customerPhone, serviceId, professionalId, date, time, internalNote, forceBlockedCustomer));
+            appointments.createManual(user.getEstablishment(), user, request);
             r.addFlashAttribute("success", "Novo agendamento confirmado. Esse horário ficou indisponível na agenda pública.");
             return "redirect:/panel/appointments";
         } catch (IllegalArgumentException | IllegalStateException ex) {
@@ -240,12 +238,15 @@ public class PanelController {
     }
 
     @PostMapping("/panel/services")
-    String service(@RequestParam String name, @RequestParam int durationMinutes, @RequestParam(required = false) BigDecimal price, @RequestParam(required = false) String description, RedirectAttributes r) {
+    String service(@Valid @ModelAttribute ServiceForm form, BindingResult binding, RedirectAttributes r) {
+        if (binding.hasErrors()) {
+            return panelError(r, bindingMessage(binding), "/panel/services");
+        }
         try {
             AppUser u = current.user();
             ServiceItem s = new ServiceItem();
             s.setEstablishment(u.getEstablishment());
-            applyServiceFields(s, name, durationMinutes, price, description);
+            applyServiceFields(s, form);
             services.save(s);
             r.addFlashAttribute("success", "Serviço salvo com sucesso.");
             return "redirect:/panel/services";
@@ -255,12 +256,15 @@ public class PanelController {
     }
 
     @PostMapping("/panel/services/{id}")
-    String updateService(@PathVariable Long id, @RequestParam String name, @RequestParam int durationMinutes, @RequestParam(required = false) BigDecimal price, @RequestParam(required = false) String description, @RequestParam(defaultValue = "false") boolean active, RedirectAttributes r) {
+    String updateService(@PathVariable Long id, @Valid @ModelAttribute ServiceForm form, BindingResult binding, RedirectAttributes r) {
+        if (binding.hasErrors()) {
+            return panelError(r, bindingMessage(binding), "/panel/services");
+        }
         try {
             ServiceItem s = services.findByIdAndEstablishmentId(id, current.establishmentId())
                     .orElseThrow(() -> new IllegalArgumentException("Serviço não encontrado para este estabelecimento."));
-            applyServiceFields(s, name, durationMinutes, price, description);
-            s.setActive(active);
+            applyServiceFields(s, form);
+            s.setActive(form.active());
             services.save(s);
             r.addFlashAttribute("success", "Serviço atualizado com sucesso.");
             return "redirect:/panel/services";
@@ -304,12 +308,15 @@ public class PanelController {
     }
 
     @PostMapping("/panel/professionals")
-    String professional(@RequestParam String name, @RequestParam(required = false) String bio, @RequestParam(required = false) String whatsapp, @RequestParam(required = false) List<Long> serviceIds, RedirectAttributes r) {
+    String professional(@Valid @ModelAttribute ProfessionalForm form, BindingResult binding, RedirectAttributes r) {
+        if (binding.hasErrors()) {
+            return panelError(r, bindingMessage(binding), "/panel/professionals");
+        }
         try {
             AppUser u = current.user();
             Professional p = new Professional();
             p.setEstablishment(u.getEstablishment());
-            applyProfessionalFields(p, name, bio, whatsapp, true, serviceIds, u.getEstablishment().getId());
+            applyProfessionalFields(p, form.name(), form.bio(), form.whatsapp(), true, form.serviceIds(), u.getEstablishment().getId());
             professionals.save(p);
             r.addFlashAttribute("success", "Profissional salvo com sucesso.");
             return "redirect:/panel/professionals";
@@ -319,12 +326,15 @@ public class PanelController {
     }
 
     @PostMapping("/panel/professionals/{id}")
-    String updateProfessional(@PathVariable Long id, @RequestParam String name, @RequestParam(required = false) String bio, @RequestParam(required = false) String whatsapp, @RequestParam(defaultValue = "false") boolean active, @RequestParam(required = false) List<Long> serviceIds, RedirectAttributes r) {
+    String updateProfessional(@PathVariable Long id, @Valid @ModelAttribute ProfessionalForm form, BindingResult binding, RedirectAttributes r) {
+        if (binding.hasErrors()) {
+            return panelError(r, bindingMessage(binding), "/panel/professionals");
+        }
         try {
             Long est = current.establishmentId();
             Professional p = professionals.findByIdAndEstablishmentId(id, est)
                     .orElseThrow(() -> new IllegalArgumentException("Profissional não encontrado para este estabelecimento."));
-            applyProfessionalFields(p, name, bio, whatsapp, active, serviceIds, est);
+            applyProfessionalFields(p, form.name(), form.bio(), form.whatsapp(), form.active(), form.serviceIds(), est);
             professionals.save(p);
             r.addFlashAttribute("success", "Profissional atualizado com sucesso.");
             return "redirect:/panel/professionals";
@@ -371,23 +381,23 @@ public class PanelController {
     }
 
     @PostMapping("/panel/time-blocks")
-    String block(@RequestParam String title, @RequestParam(required = false) Long professionalId, @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startAt, @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endAt, @RequestParam(required = false) String reason, RedirectAttributes r) {
+    String block(@Valid @ModelAttribute TimeBlockForm form, BindingResult binding, RedirectAttributes r) {
+        if (binding.hasErrors()) {
+            return panelError(r, bindingMessage(binding), "/panel/time-blocks");
+        }
         try {
-            if (title == null || title.isBlank()) {
-                throw new IllegalArgumentException("Informe o título do bloqueio.");
-            }
-            if (endAt == null || startAt == null || !endAt.isAfter(startAt)) {
+            if (!form.endAt().isAfter(form.startAt())) {
                 throw new IllegalArgumentException("Verifique os horários do bloqueio e tente novamente.");
             }
             AppUser u = current.user();
             TimeBlock b = new TimeBlock();
             b.setEstablishment(u.getEstablishment());
-            b.setTitle(title.trim());
-            b.setStartAt(startAt);
-            b.setEndAt(endAt);
-            b.setReason(reason);
-            if (professionalId != null) {
-                b.setProfessional(professionals.findByIdAndEstablishmentId(professionalId, u.getEstablishment().getId())
+            b.setTitle(form.title().trim());
+            b.setStartAt(form.startAt());
+            b.setEndAt(form.endAt());
+            b.setReason(form.reason());
+            if (form.professionalId() != null) {
+                b.setProfessional(professionals.findByIdAndEstablishmentId(form.professionalId(), u.getEstablishment().getId())
                         .orElseThrow(() -> new IllegalArgumentException("Profissional não encontrado para este estabelecimento.")));
             }
             blocks.save(b);
@@ -413,30 +423,12 @@ public class PanelController {
     }
 
     @PostMapping("/panel/settings")
-    String settings(@RequestParam(defaultValue = "false") boolean newClientRequiresApproval,
-                    @RequestParam int pendingExpirationMinutes,
-                    @RequestParam int maxFutureAppointmentsPerPhone,
-                    @RequestParam int maxAttemptsPerPhoneHour,
-                    @RequestParam int maxAttemptsPerIpHour,
-                    @RequestParam int noShowCountForManualApproval,
-                    @RequestParam int noShowCountForBlock,
-                    @RequestParam int minHoursBeforeClientCancel,
-                    @RequestParam int longServiceManualApprovalMinutes,
-                    @RequestParam(defaultValue = "false") boolean showPricesOnPublicPage,
-                    RedirectAttributes r) {
+    String settings(@Valid @ModelAttribute EstablishmentSettingsForm form, BindingResult binding, RedirectAttributes r) {
+        if (binding.hasErrors()) {
+            return panelError(r, bindingMessage(binding), "/panel/settings");
+        }
         try {
-            settingsService.update(current.user().getEstablishment(), new EstablishmentSettingsForm(
-                    newClientRequiresApproval,
-                    pendingExpirationMinutes,
-                    maxFutureAppointmentsPerPhone,
-                    maxAttemptsPerPhoneHour,
-                    maxAttemptsPerIpHour,
-                    noShowCountForManualApproval,
-                    noShowCountForBlock,
-                    minHoursBeforeClientCancel,
-                    longServiceManualApprovalMinutes,
-                    showPricesOnPublicPage
-            ));
+            settingsService.update(current.user().getEstablishment(), form);
             r.addFlashAttribute("success", "Configurações salvas com sucesso.");
             return "redirect:/panel/settings";
         } catch (IllegalArgumentException | IllegalStateException ex) {
@@ -513,14 +505,14 @@ public class PanelController {
         return "redirect:" + path;
     }
 
-    private void applyServiceFields(ServiceItem service, String name, int durationMinutes, BigDecimal price, String description) {
-        if (name == null || name.isBlank() || durationMinutes < 15 || durationMinutes % 15 != 0 || price != null && price.signum() < 0) {
+    private void applyServiceFields(ServiceItem service, ServiceForm form) {
+        if (form.durationMinutes() % 15 != 0) {
             throw new IllegalArgumentException("Verifique os dados do serviço.");
         }
-        service.setName(name.trim());
-        service.setDurationMinutes(durationMinutes);
-        service.setPrice(price);
-        service.setDescription(description);
+        service.setName(form.name().trim());
+        service.setDurationMinutes(form.durationMinutes());
+        service.setPrice(form.price());
+        service.setDescription(form.description());
     }
 
     private void applyProfessionalFields(Professional professional, String name, String bio, String whatsapp, boolean active, List<Long> serviceIds, Long establishmentId) {
@@ -558,5 +550,12 @@ public class PanelController {
 
     private long appointmentsCountByProfessional(Long establishmentId, Long professionalId) {
         return appointments.countAppointmentsForProfessional(establishmentId, professionalId);
+    }
+
+    private String bindingMessage(BindingResult binding) {
+        return binding.getAllErrors().stream()
+                .findFirst()
+                .map(error -> error.getDefaultMessage() == null ? "Verifique os dados e tente novamente." : error.getDefaultMessage())
+                .orElse("Verifique os dados e tente novamente.");
     }
 }

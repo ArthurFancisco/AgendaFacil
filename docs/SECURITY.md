@@ -80,3 +80,41 @@ O agendamento publico tambem valida limite de horarios futuros por telefone, blo
 O serviço, o profissional e o vínculo entre eles são sempre buscados pelo `establishmentId` confiável. O cliente pode enviar IDs no formulário público, mas o backend rejeita profissional sem vínculo com o serviço escolhido.
 
 O horário enviado no POST público ou manual também é revalidado no backend. A aplicação não confia apenas nos links renderizados pelo HTML para decidir disponibilidade.
+
+## Headers HTTP
+
+O `SecurityConfig` envia headers para reduzir risco de clickjacking, sniffing e vazamento de origem:
+
+- `Content-Security-Policy` com `default-src 'self'`, `frame-ancestors 'none'` e `object-src 'none'`.
+- `Strict-Transport-Security` para producao em HTTPS.
+- `X-Content-Type-Options: nosniff`.
+- `X-Frame-Options: DENY`.
+- `Referrer-Policy: strict-origin-when-cross-origin`.
+
+A CSP permite `style-src 'self' 'unsafe-inline'` porque o fluxo Thymeleaf atual usa estilos inline em alguns pontos. Scripts continuam limitados a `'self'`.
+
+## Cookies de sessao
+
+O cookie de sessao chama `AGENDAFACIL_SESSION`, usa `httpOnly=true`, `sameSite=strict` e timeout de 30 minutos.
+
+O profile padrao `dev` usa `secure=false` para funcionar em HTTP local. Em producao, use `SPRING_PROFILES_ACTIVE=prod` e HTTPS; nesse profile o cookie fica `secure=true`.
+
+## Protecao contra forca bruta no login
+
+`LoginAttemptService` registra tentativas administrativas sem salvar senha. O sistema bloqueia temporariamente:
+
+- 5 falhas para o mesmo e-mail em 15 minutos;
+- 10 falhas para o mesmo IP em 15 minutos;
+- bloqueio por 15 minutos.
+
+O login usa mensagens genericas e nunca revela se o e-mail existe.
+
+## Validacao de formularios
+
+Forms publicos e administrativos usam Bean Validation como primeira barreira para campos obrigatorios, tamanhos maximos, telefone, datas, duracao e preco. As regras criticas continuam nos services.
+
+Erros de validacao devem voltar como mensagens humanas e nao podem exibir stacktrace, nome de classe, SQL, payload ou enum cru.
+
+## Testes de isolamento
+
+O isolamento multi-tenant possui testes automatizados para impedir que um estabelecimento altere dados de outro por ID real. Novas operacoes administrativas devem manter consultas por `id + establishmentId`.

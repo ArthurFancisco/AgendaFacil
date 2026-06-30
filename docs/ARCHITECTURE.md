@@ -37,6 +37,7 @@ Concentra regras de negócio, transações e coordenação entre repositórios.
 - `AppointmentService`: disponibilidade, criação de reserva, aprovação, recusa, cancelamento, conclusão, falta e expiração.
 - `AppointmentAuditService`: auditoria das decisões administrativas sobre agendamentos.
 - `BookingGuardService`: barreiras antifraude por telefone, IP e honeypot.
+- `LoginAttemptService`: rate limit e bloqueio temporario de tentativas do login administrativo.
 - `CatalogService`: catálogo público de estabelecimento, serviços e profissionais ativos.
 - `DashboardService`: dados agregados do painel.
 - `CurrentUserService`: estabelecimento do usuário autenticado.
@@ -47,13 +48,14 @@ Abstrai acesso ao banco com Spring Data JPA. Consultas sempre que necessário in
 
 ### DTO / Records
 
-O projeto usa records simples dentro dos services para transportar dados calculados para as views:
+O projeto usa records simples dentro dos services e forms de controller para transportar dados calculados e validar entradas:
 
 - `AppointmentService.Slot`
 - `AppointmentService.Summary`
 - `DashboardService.Metric`
 - `DashboardService.Day`
 - `DashboardService.Data`
+- forms publicos e administrativos com Bean Validation antes de chamar services.
 
 ### Entity
 

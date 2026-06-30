@@ -3,7 +3,8 @@
 <body class="auth">
   <main class="auth-card">
     <div class="mark">A</div><h1>Entrar no painel</h1><p class="muted">A agenda do estabelecimento fica protegida por login.</p>
-    <div class="alert danger" th:if="${param.error}">E-mail ou senha não conferem.</div>
+    <div class="alert danger" th:if="${param.error}">Usuário ou senha inválidos.</div>
+    <div class="alert danger" th:if="${param.blocked}">Muitas tentativas. Tente novamente em alguns minutos.</div>
     <div class="alert ok" th:if="${param.logout}">Você saiu do painel com segurança.</div>
     <form th:action="@{/login}" method="post" class="form">
       <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
@@ -11,6 +12,6 @@
       <label>Senha<input name="password" type="password" placeholder="Sua senha" required></label>
       <button class="btn primary" type="submit">Entrar</button>
     </form>
-    <small class="muted">Demo local: admin@demo.local · admin123</small>
+    <small class="muted">Use as credenciais administrativas do estabelecimento.</small>
   </main>
 </body></html>

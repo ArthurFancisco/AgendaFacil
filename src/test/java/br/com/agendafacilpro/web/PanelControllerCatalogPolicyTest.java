@@ -1,7 +1,9 @@
 package br.com.agendafacilpro.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -76,6 +78,18 @@ class PanelControllerCatalogPolicyTest {
     }
 
     @Test
+    void establishmentCannotDeleteServiceFromAnotherEstablishment() {
+        when(services.findByIdAndEstablishmentId(99L, 1L)).thenReturn(Optional.empty());
+        RedirectAttributesModelMap redirect = new RedirectAttributesModelMap();
+
+        String route = controller.deleteService(99L, redirect);
+
+        assertThat(route).isEqualTo("redirect:/panel/services");
+        verify(services, never()).delete(any(ServiceItem.class));
+        assertThat(redirect.getFlashAttributes()).containsKey("error");
+    }
+
+    @Test
     void professionalWithoutHistoryCanBeDeleted() {
         Professional professional = professional();
         when(professionals.findByIdAndEstablishmentId(3L, 1L)).thenReturn(Optional.of(professional));
@@ -99,6 +113,18 @@ class PanelControllerCatalogPolicyTest {
 
         assertThat(professional.isActive()).isFalse();
         verify(professionals).save(professional);
+        assertThat(redirect.getFlashAttributes()).containsKey("error");
+    }
+
+    @Test
+    void establishmentCannotDeleteProfessionalFromAnotherEstablishment() {
+        when(professionals.findByIdAndEstablishmentId(99L, 1L)).thenReturn(Optional.empty());
+        RedirectAttributesModelMap redirect = new RedirectAttributesModelMap();
+
+        String route = controller.deleteProfessional(99L, redirect);
+
+        assertThat(route).isEqualTo("redirect:/panel/professionals");
+        verify(professionals, never()).delete(any(Professional.class));
         assertThat(redirect.getFlashAttributes()).containsKey("error");
     }
 

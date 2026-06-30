@@ -99,3 +99,17 @@
 - [ ] Profissional sem histórico pode ser excluído.
 - [ ] Profissional com histórico é arquivado e mostra mensagem humana.
 - [ ] Item inativo não aparece no agendamento público.
+
+## Hardening HTTP e login
+
+- [ ] Respostas principais enviam Content-Security-Policy.
+- [ ] Respostas principais enviam X-Frame-Options DENY.
+- [ ] Respostas principais enviam X-Content-Type-Options nosniff.
+- [ ] Respostas principais enviam Referrer-Policy strict-origin-when-cross-origin.
+- [ ] Em producao, cookie `AGENDAFACIL_SESSION` fica `httpOnly`, `secure` e `sameSite=strict`.
+- [ ] Em dev, cookie secure fica desativado apenas para rodar sem HTTPS local.
+- [ ] Login administrativo bloqueia forca bruta por e-mail e IP.
+- [ ] Mensagem de login nao revela se o usuario existe.
+- [ ] Validacao rejeita payload invalido em formularios publicos e administrativos.
+- [ ] Estabelecimento B nao acessa nem altera dados de A usando IDs reais.
+- [ ] Paginas 403, 404 e 500 nao mostram stacktrace, classe de excecao ou caminho interno.

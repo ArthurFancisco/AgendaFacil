@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Ops · AgendaFácil Pro</title>
+  <title>Página não encontrada · AgendaFácil Pro</title>
   <link rel="stylesheet" th:href="@{/css/app.css}">
 </head>
 <body class="public">
 <main class="shell narrow">
   <section class="card center">
     <div class="mark">A</div>
-    <h1 th:text="${title ?: 'Não conseguimos abrir esta página'}">Não deu certo</h1>
-    <p class="muted" th:text="${message ?: 'Tente novamente em alguns instantes.'}">Tente novamente.</p>
-    <p>
+    <h1>Não encontramos essa página.</h1>
+    <p class="muted">O endereço pode ter mudado ou o link pode estar incompleto.</p>
+    <p class="success-actions">
       <a class="btn primary" th:href="@{/}">Voltar ao início</a>
-      <a class="btn light" th:href="@{/agenda/agenda-demo}">Ir para a agenda</a>
+      <a class="btn light" th:href="@{/login}">Ir para o login</a>
     </p>
   </section>
 </main>

@@ -9,6 +9,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.ui.ExtendedModelMap;
+import org.springframework.validation.BeanPropertyBindingResult;
 
 import br.com.agendafacilpro.domain.Appointment;
 import br.com.agendafacilpro.domain.AppointmentStatus;
@@ -19,6 +20,7 @@ import br.com.agendafacilpro.domain.ServiceItem;
 import br.com.agendafacilpro.service.AppointmentService;
 import br.com.agendafacilpro.service.CatalogService;
 import br.com.agendafacilpro.service.EstablishmentSettingsService;
+import br.com.agendafacilpro.web.form.PublicBookingForm;
 
 class PublicBookingControllerFlowTest {
 
@@ -31,15 +33,11 @@ class PublicBookingControllerFlowTest {
 
     @Test
     void reviewStepDoesNotPersistAppointment() {
+        PublicBookingForm form = bookingForm();
         String view = controller.review(
                 "agenda-demo",
-                2L,
-                3L,
-                LocalDate.now().plusDays(1),
-                LocalTime.of(9, 0),
-                "Ana Cliente",
-                "(17) 98888-7777",
-                "",
+                form,
+                new BeanPropertyBindingResult(form, "bookingForm"),
                 new ExtendedModelMap()
         );
 
@@ -50,15 +48,11 @@ class PublicBookingControllerFlowTest {
 
     @Test
     void finalConfirmationPersistsAppointment() {
+        PublicBookingForm form = bookingForm();
         String view = controller.confirm(
                 "agenda-demo",
-                2L,
-                3L,
-                LocalDate.now().plusDays(1),
-                LocalTime.of(9, 0),
-                "Ana Cliente",
-                "(17) 98888-7777",
-                "",
+                form,
+                new BeanPropertyBindingResult(form, "bookingForm"),
                 new MockHttpServletRequest(),
                 new ExtendedModelMap()
         );
@@ -96,6 +90,18 @@ class PublicBookingControllerFlowTest {
         establishment.setSlug("agenda-demo");
         establishment.setWhatsapp("5517999999999");
         return establishment;
+    }
+
+    private static PublicBookingForm bookingForm() {
+        return new PublicBookingForm(
+                2L,
+                3L,
+                LocalDate.now().plusDays(1),
+                LocalTime.of(9, 0),
+                "Ana Cliente",
+                "(17) 98888-7777",
+                ""
+        );
     }
 
     private static ServiceItem service(Establishment establishment) {
